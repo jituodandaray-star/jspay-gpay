@@ -181,6 +181,16 @@ public class MainActivity extends Activity {
         key.setTextSize(14);
         key.setSingleLine(true);
         key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        key.setFocusable(true);
+        key.setFocusableInTouchMode(true);
+        key.setOnTouchListener((v, ev) -> {
+            if (ev.getAction() == MotionEvent.ACTION_UP) {
+                v.requestFocus();
+                android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            }
+            return false;
+        });
         key.setBackground(box(Color.parseColor("#0B1020"), 12, LINE));
         key.setPadding(dp(14), dp(12), dp(14), dp(12));
         lc.addView(key, new LinearLayout.LayoutParams(-1, -2));
@@ -284,13 +294,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (Build.VERSION.SDK_INT >= 33 && !sp.getBoolean("asked", false)
-                && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            sp.edit().putBoolean("asked", true).apply();
-            try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7); } catch (Exception ignored) { }
-        }
         refresh();
-    }
+                       }
     boolean notifOn() {
         String en = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
         return !TextUtils.isEmpty(en) && en.contains(getPackageName());
@@ -460,4 +465,4 @@ public class MainActivity extends Activity {
             rowLast.setText("No payment signal yet");
         }
     }
-    }
+                }
