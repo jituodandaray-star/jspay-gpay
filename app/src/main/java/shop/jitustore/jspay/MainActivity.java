@@ -47,8 +47,10 @@ public class MainActivity extends Activity {
     LinearLayout loginBox, dashBox;
     EditText key;
     LinearLayout histBox;
+    ScrollView histScroll;
+    TextView histTotal;
     boolean wasVerified = false;
-    TextView pill, loginMsg, loginBtn, chipKey, chipAccess, chipBatt, rowLast;
+    TextView pill, loginMsg, loginBtn, chipKey, chipAccess, chipBatt, chipNet, rowLast;
 
     int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
@@ -204,6 +206,7 @@ public class MainActivity extends Activity {
         chipKey = chip();
         chipAccess = chip();
         chipBatt = chip();
+        chipNet = chip();
         st.addView(row("Login Key", chipKey, null));
         st.addView(row("Notification Access", chipAccess, v -> {
             if (!notifOn()) startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
@@ -211,6 +214,7 @@ public class MainActivity extends Activity {
         st.addView(row("Background / Battery", chipBatt, v -> {
             if (!battOk()) fixBattery();
         }));
+        st.addView(row("Internet", chipNet, v -> startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS))));
         rowLast = text("", 13, MUTED, false);
         rowLast.setPadding(0, dp(14), 0, 0);
         st.addView(rowLast);
@@ -220,10 +224,20 @@ public class MainActivity extends Activity {
         dashBox.addView(st);
 
         LinearLayout hc = card();
-        hc.addView(text("RECENT PAYMENTS", 11, MUTED, true));
+        hc.addView(text("PAYMENT HISTORY", 11, MUTED, true));
+        histTotal = text("", 13, MUTED, false);
+        histTotal.setPadding(0, dp(6), 0, dp(4));
+        hc.addView(histTotal);
+        histScroll = new ScrollView(this);
+        histScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         histBox = new LinearLayout(this);
         histBox.setOrientation(LinearLayout.VERTICAL);
-        hc.addView(histBox);
+        histScroll.addView(histBox);
+        histScroll.setOnTouchListener((v, ev) -> {
+            v.getParent().requestDisallowInterceptTouchEvent(true);
+            return false;
+        });
+        hc.addView(histScroll, new LinearLayout.LayoutParams(-1, dp(380)));
         dashBox.addView(hc);
 
         LinearLayout ac = card();
@@ -243,7 +257,7 @@ public class MainActivity extends Activity {
         panel.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW,
                 Uri.parse("https://jitustore.shop/pay/auth/gpay.php"))));
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.1", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.3", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -259,6 +273,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (Build.VERSION.SDK_INT >= 33) {
+            try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7); } catch (Exception ignored) { }
+        }
         refresh();
     }
 
@@ -343,9 +360,12 @@ public class MainActivity extends Activity {
             TextView e = text("No payments yet.", 13, MUTED, false);
             e.setPadding(0, dp(10), 0, 0);
             histBox.addView(e);
+            histTotal.setText("");
             return;
         }
         String[] lines = h.split("\n");
+        int count = 0;
+        double total = 0;
         for (int i = 0; i < lines.length; i++) {
             String[] f = lines[i].split("\\|", 4);
             if (f.length < 4) continue;
@@ -353,6 +373,10 @@ public class MainActivity extends Activity {
             int code = -1;
             try { ts = Long.parseLong(f[0]); code = Integer.parseInt(f[1]); } catch (Exception ignored) { }
             boolean ok = (code == 200);
+            count++;
+            if (ok) {
+                try { total += Double.parseDouble(f[2].replace(",", "")); } catch (Exception ignored) { }
+            }
             LinearLayout r = new LinearLayout(this);
             r.setOrientation(LinearLayout.HORIZONTAL);
             r.setGravity(Gravity.CENTER_VERTICAL);
@@ -360,56 +384,4 @@ public class MainActivity extends Activity {
             LinearLayout left = new LinearLayout(this);
             left.setOrientation(LinearLayout.VERTICAL);
             String amt = f[2].isEmpty() ? "Payment" : "\u20B9" + f[2];
-            left.addView(text(amt, 17, ok ? Color.parseColor("#4ADE80") : TXT, true));
-            String when = new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(ts));
-            left.addView(text(when, 12, MUTED, false));
-            r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
-            TextView c = chip();
-            setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
-            r.addView(c);
-            r.setAlpha(0f);
-            r.animate().alpha(1f).setDuration(350).setStartDelay(60L * i).start();
-            histBox.addView(r);
-        }
-    }
-
-    void refresh() {
-        String k = sp.getString("secret", "");
-        boolean verified = k.length() >= 5 && sp.getBoolean("verified", true);
-        boolean access = notifOn();
-        boolean batt = battOk();
-        loginBox.setVisibility(verified ? View.GONE : View.VISIBLE);
-        dashBox.setVisibility(verified ? View.VISIBLE : View.GONE);
-        boolean live = verified && access && batt;
-        pill.setText(live ? "LIVE" : (verified ? "SETUP PENDING" : "LOGIN REQUIRED"));
-        pill.setBackground(box(live ? GOOD : BAD, 20, 0));
-        pill.clearAnimation();
-        if (live) {
-            AlphaAnimation pulse = new AlphaAnimation(1f, 0.45f);
-            pulse.setDuration(900);
-            pulse.setRepeatMode(Animation.REVERSE);
-            pulse.setRepeatCount(Animation.INFINITE);
-            pill.startAnimation(pulse);
-        }
-        if (verified && !wasVerified) {
-            dashBox.setAlpha(0f);
-            dashBox.setTranslationY(dp(22));
-            dashBox.animate().alpha(1f).translationY(0f).setDuration(450).start();
-        }
-        wasVerified = verified;
-        renderHistory();
-
-        String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
-        setChip(chipKey, verified, "Logged in  " + masked, "Not logged in");
-        setChip(chipAccess, access, "ON ✓", "OFF – tap to fix");
-        setChip(chipBatt, batt, "ON ✓", "OFF – tap to fix");
-
-        long last = sp.getLong("last", 0);
-        if (last > 0) {
-            String when = new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(last));
-            rowLast.setText("Last payment signal: " + when + "  (server " + sp.getInt("code", 0) + ")");
-        } else {
-            rowLast.setText("No payment signal yet");
-        }
-    }
-                }
+            left.addView(text(amt, 17, ok ? Color.parseC
