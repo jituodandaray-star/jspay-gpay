@@ -351,8 +351,7 @@ public class MainActivity extends Activity {
             else Toast.makeText(this, "Server error (" + rc + ")", Toast.LENGTH_SHORT).show();
         }
         refresh();
-    }
-
+                            }
     void renderHistory() {
         histBox.removeAllViews();
         String h = sp.getString("hist", "");
@@ -384,4 +383,68 @@ public class MainActivity extends Activity {
             LinearLayout left = new LinearLayout(this);
             left.setOrientation(LinearLayout.VERTICAL);
             String amt = f[2].isEmpty() ? "Payment" : "\u20B9" + f[2];
-            left.addView(text(amt, 17, ok ? Color.parseC
+            left.addView(text(amt, 17, ok ? Color.parseColor("#4ADE80") : TXT, true));
+            java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)\\s+at\\s").matcher(f[3] + " ");
+            if (nm.find()) {
+                TextView who = text("from " + nm.group(1).trim(), 14, TXT, false);
+                who.setPadding(0, dp(2), 0, 0);
+                left.addView(who);
+            }
+            String when = new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(ts));
+            left.addView(text(when, 12, MUTED, false));
+            r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
+            TextView c = chip();
+            setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
+            r.addView(c);
+            if (i < 12) {
+                r.setAlpha(0f);
+                r.animate().alpha(1f).setDuration(350).setStartDelay(60L * i).start();
+            }
+            histBox.addView(r);
+        }
+        String tot = (total == Math.floor(total)) ? String.valueOf((long) total) : String.format(Locale.US, "%.2f", total);
+        histTotal.setText(count + " payments  \u2022  Total \u20B9" + tot);
+    }
+
+    void refresh() {
+        String k = sp.getString("secret", "");
+        boolean verified = k.length() >= 5 && sp.getBoolean("verified", true);
+        boolean access = notifOn();
+        boolean batt = battOk();
+        loginBox.setVisibility(verified ? View.GONE : View.VISIBLE);
+        dashBox.setVisibility(verified ? View.VISIBLE : View.GONE);
+        boolean net = NotifService.online(this);
+        boolean live = verified && access && batt && net;
+        pill.setText(live ? "LIVE" : (verified ? (net ? "SETUP PENDING" : "NO INTERNET") : "LOGIN REQUIRED"));
+        pill.setBackground(box(live ? GOOD : BAD, 20, 0));
+        pill.clearAnimation();
+        if (live) {
+            AlphaAnimation pulse = new AlphaAnimation(1f, 0.45f);
+            pulse.setDuration(900);
+            pulse.setRepeatMode(Animation.REVERSE);
+            pulse.setRepeatCount(Animation.INFINITE);
+            pill.startAnimation(pulse);
+        }
+        if (verified && !wasVerified) {
+            dashBox.setAlpha(0f);
+            dashBox.setTranslationY(dp(22));
+            dashBox.animate().alpha(1f).translationY(0f).setDuration(450).start();
+        }
+        wasVerified = verified;
+        renderHistory();
+
+        String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
+        setChip(chipKey, verified, "Logged in  " + masked, "Not logged in");
+        setChip(chipAccess, access, "ON ✓", "OFF – tap to fix");
+        setChip(chipBatt, batt, "ON ✓", "OFF – tap to fix");
+        setChip(chipNet, net, "Online ✓", "OFFLINE – turn on net");
+
+        long last = sp.getLong("last", 0);
+        if (last > 0) {
+            String when = new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(last));
+            rowLast.setText("Last payment signal: " + when + "  (server " + sp.getInt("code", 0) + ")");
+        } else {
+            rowLast.setText("No payment signal yet");
+        }
+    }
+    }
