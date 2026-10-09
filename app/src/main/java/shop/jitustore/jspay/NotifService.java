@@ -1,13 +1,10 @@
 package shop.jitustore.jspay;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.os.Build;
 import android.content.SharedPreferences;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
@@ -21,7 +18,6 @@ import java.util.regex.Pattern;
 public class NotifService extends NotificationListenerService {
     static final String URL_NOTIFY = "https://jitustore.shop/pay/gpay/notify.php";
 
-    ConnectivityManager.NetworkCallback cb;
     static boolean online(Context c) {
         try {
             ConnectivityManager cm = (ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -30,40 +26,6 @@ public class NotifService extends NotificationListenerService {
             NetworkCapabilities nc = cm.getNetworkCapabilities(n);
             return nc != null && nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
         } catch (Exception e) { return true; }
-    }
-
-    void warn(boolean off) {
-        try {
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (!off) { nm.cancel(4242); return; }
-            if (getSharedPreferences("c", MODE_PRIVATE).getString("secret", "").length() < 5) return;
-            Notification.Builder b;
-            if (Build.VERSION.SDK_INT >= 26) {
-                nm.createNotificationChannel(new NotificationChannel("net", "Internet warning", NotificationManager.IMPORTANCE_HIGH));
-                b = new Notification.Builder(this, "net");
-            } else {
-                b = new Notification.Builder(this);
-            }
-            b.setSmallIcon(R.drawable.ic_launcher)
-             .setContentTitle("Internet is OFF")
-             .setContentText("Payments may be delayed. Turn on mobile data or Wi-Fi.")
-             .setOngoing(true);
-            nm.notify(4242, b.build());
-        } catch (Exception ignored) { }
-    }
-
-    @Override
-    public void onListenerConnected() {
-        try {
-            warn(!online(this));
-            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            if (cb != null) cm.unregisterNetworkCallback(cb);
-            cb = new ConnectivityManager.NetworkCallback() {
-                @Override public void onAvailable(Network n) { warn(false); }
-                @Override public void onLost(Network n) { warn(!online(NotifService.this)); }
-            };
-            cm.registerDefaultNetworkCallback(cb);
-        } catch (Exception ignored) { }
     }
 
     @Override
@@ -128,4 +90,4 @@ public class NotifService extends NotificationListenerService {
             sp.edit().putString("hist", sb.toString()).apply();
         } catch (Exception ignored) { }
     }
-                    }
+}
