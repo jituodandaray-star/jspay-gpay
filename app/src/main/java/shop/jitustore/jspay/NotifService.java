@@ -1,6 +1,13 @@
 package shop.jitustore.jspay;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.os.Build;
 import android.content.SharedPreferences;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
@@ -13,6 +20,51 @@ import java.util.regex.Pattern;
 
 public class NotifService extends NotificationListenerService {
     static final String URL_NOTIFY = "https://jitustore.shop/pay/gpay/notify.php";
+
+    ConnectivityManager.NetworkCallback cb;
+    static boolean online(Context c) {
+        try {
+            ConnectivityManager cm = (ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
+            Network n = cm.getActiveNetwork();
+            if (n == null) return false;
+            NetworkCapabilities nc = cm.getNetworkCapabilities(n);
+            return nc != null && nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+        } catch (Exception e) { return true; }
+    }
+
+    void warn(boolean off) {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (!off) { nm.cancel(4242); return; }
+            if (getSharedPreferences("c", MODE_PRIVATE).getString("secret", "").length() < 5) return;
+            Notification.Builder b;
+            if (Build.VERSION.SDK_INT >= 26) {
+                nm.createNotificationChannel(new NotificationChannel("net", "Internet warning", NotificationManager.IMPORTANCE_HIGH));
+                b = new Notification.Builder(this, "net");
+            } else {
+                b = new Notification.Builder(this);
+            }
+            b.setSmallIcon(R.drawable.ic_launcher)
+             .setContentTitle("Internet is OFF")
+             .setContentText("Payments may be delayed. Turn on mobile data or Wi-Fi.")
+             .setOngoing(true);
+            nm.notify(4242, b.build());
+        } catch (Exception ignored) { }
+    }
+
+    @Override
+    public void onListenerConnected() {
+        try {
+            warn(!online(this));
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cb != null) cm.unregisterNetworkCallback(cb);
+            cb = new ConnectivityManager.NetworkCallback() {
+                @Override public void onAvailable(Network n) { warn(false); }
+                @Override public void onLost(Network n) { warn(!online(NotifService.this)); }
+            };
+            cm.registerDefaultNetworkCallback(cb);
+        } catch (Exception ignored) { }
+    }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -62,8 +114,8 @@ public class NotifService extends NotificationListenerService {
     private synchronized void addHistory(String title, String text, int code) {
         try {
             String all = title + " " + text;
-            if (!all.contains("\u20B9")) return;
-            Matcher m = Pattern.compile("\u20B9\\s?([0-9,]+(\\.[0-9]+)?)").matcher(all);
+            if (!all.contains("₹")) return;
+            Matcher m = Pattern.compile("₹\\s?([0-9,]+(\\.[0-9]+)?)").matcher(all);
             String amount = m.find() ? m.group(1) : "";
             String sum = (title.isEmpty() ? text : title).replace("\n", " ").replace("|", " ");
             if (sum.length() > 70) sum = sum.substring(0, 70);
@@ -72,8 +124,8 @@ public class NotifService extends NotificationListenerService {
             String old = sp.getString("hist", "");
             String[] parts = old.isEmpty() ? new String[0] : old.split("\n");
             StringBuilder sb = new StringBuilder(line);
-            for (int i = 0; i < parts.length && i < 9; i++) sb.append("\n").append(parts[i]);
+            for (int i = 0; i < parts.length && i < 499; i++) sb.append("\n").append(parts[i]);
             sp.edit().putString("hist", sb.toString()).apply();
         } catch (Exception ignored) { }
     }
-    }
+                    }
