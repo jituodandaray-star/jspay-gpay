@@ -8,6 +8,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class NotifService extends NotificationListenerService {
     static final String URL_NOTIFY = "https://jitustore.shop/pay/gpay/notify.php";
@@ -32,6 +34,7 @@ public class NotifService extends NotificationListenerService {
     }
 
     private void send(String secret, String title, String text) {
+        int code = -1;
         for (int i = 0; i < 4; i++) {
             try {
                 String body = "secret=" + URLEncoder.encode(secret, "UTF-8")
@@ -39,16 +42,38 @@ public class NotifService extends NotificationListenerService {
                         + "&text=" + URLEncoder.encode(text, "UTF-8");
                 HttpURLConnection c = (HttpURLConnection) new URL(URL_NOTIFY).openConnection();
                 c.setRequestMethod("POST");
-                c.setConnectTimeout(15000); c.setReadTimeout(15000);
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(15000);
                 c.setDoOutput(true);
                 c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                OutputStream o = c.getOutputStream(); o.write(body.getBytes("UTF-8")); o.close();
-                int code = c.getResponseCode();
+                OutputStream o = c.getOutputStream();
+                o.write(body.getBytes("UTF-8"));
+                o.close();
+                code = c.getResponseCode();
                 getSharedPreferences("c", MODE_PRIVATE).edit()
                         .putLong("last", System.currentTimeMillis()).putInt("code", code).apply();
-                if (code == 200 || code == 401) return;
+                if (code == 200 || code == 401) break;
             } catch (Exception ignored) { }
-            try { Thread.sleep(5000L * (i + 1)); } catch (InterruptedException e) { return; }
+            try { Thread.sleep(5000L * (i + 1)); } catch (InterruptedException e) { break; }
         }
+        addHistory(title, text, code);
     }
-              }
+
+    private synchronized void addHistory(String title, String text, int code) {
+        try {
+            String all = title + " " + text;
+            if (!all.contains("\u20B9")) return;
+            Matcher m = Pattern.compile("\u20B9\\s?([0-9,]+(\\.[0-9]+)?)").matcher(all);
+            String amount = m.find() ? m.group(1) : "";
+            String sum = (title.isEmpty() ? text : title).replace("\n", " ").replace("|", " ");
+            if (sum.length() > 70) sum = sum.substring(0, 70);
+            String line = System.currentTimeMillis() + "|" + code + "|" + amount + "|" + sum;
+            SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
+            String old = sp.getString("hist", "");
+            String[] parts = old.isEmpty() ? new String[0] : old.split("\n");
+            StringBuilder sb = new StringBuilder(line);
+            for (int i = 0; i < parts.length && i < 9; i++) sb.append("\n").append(parts[i]);
+            sp.edit().putString("hist", sb.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+    }
