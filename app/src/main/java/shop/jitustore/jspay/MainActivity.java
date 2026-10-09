@@ -122,7 +122,6 @@ public class MainActivity extends Activity {
         t.setText(ok ? onText : offText);
         t.setBackground(box(ok ? GOOD : BAD, 20, 0));
     }
-
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -181,10 +180,22 @@ public class MainActivity extends Activity {
         key.setTextColor(TXT);
         key.setTextSize(14);
         key.setSingleLine(true);
-        key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         key.setBackground(box(Color.parseColor("#0B1020"), 12, LINE));
         key.setPadding(dp(14), dp(12), dp(14), dp(12));
         lc.addView(key, new LinearLayout.LayoutParams(-1, -2));
+        lc.addView(button("Paste from clipboard", false, v -> {
+            try {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null && cm.hasPrimaryClip() && cm.getPrimaryClip().getItemCount() > 0) {
+                    CharSequence cs = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+                    if (cs != null) { key.setText(cs.toString().trim()); key.setSelection(key.getText().length()); return; }
+                }
+                Toast.makeText(this, "Clipboard is empty. Copy the Login Key first.", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Could not paste. Long-press the box to paste.", Toast.LENGTH_SHORT).show();
+            }
+        }));
         loginMsg = text("", 13, Color.parseColor("#F87171"), false);
         loginMsg.setPadding(0, dp(8), 0, 0);
         lc.addView(loginMsg);
@@ -273,12 +284,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= 33 && !sp.getBoolean("asked", false)
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            sp.edit().putBoolean("asked", true).apply();
             try { requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 7); } catch (Exception ignored) { }
         }
         refresh();
     }
-
     boolean notifOn() {
         String en = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
         return !TextUtils.isEmpty(en) && en.contains(getPackageName());
@@ -351,7 +363,8 @@ public class MainActivity extends Activity {
             else Toast.makeText(this, "Server error (" + rc + ")", Toast.LENGTH_SHORT).show();
         }
         refresh();
-                            }
+    }
+
     void renderHistory() {
         histBox.removeAllViews();
         String h = sp.getString("hist", "");
