@@ -376,7 +376,7 @@ public class MainActivity extends Activity {
                 Uri.parse("https://jitustore.shop/pay/auth/gpay.php"))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.4", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.5", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 

@@ -43,11 +43,12 @@ public class NotifService extends NotificationListenerService {
             final String title = t == null ? "" : t.toString();
             final String text = x == null ? "" : x.toString();
             if (title.isEmpty() && text.isEmpty()) return;
-            new Thread(() -> send(secret, title, text)).start();
+            final long pt = sbn.getPostTime();
+            new Thread(() -> send(secret, title, text, pt)).start();
         } catch (Exception ignored) { }
     }
 
-    private void send(String secret, String title, String text) {
+    private void send(String secret, String title, String text, long postTime) {
         int code = -1;
         for (int i = 0; i < 4; i++) {
             try {
@@ -70,10 +71,10 @@ public class NotifService extends NotificationListenerService {
             } catch (Exception ignored) { }
             try { Thread.sleep(5000L * (i + 1)); } catch (InterruptedException e) { break; }
         }
-        addHistory(title, text, code);
+        addHistory(title, text, code, postTime);
     }
 
-    private synchronized void addHistory(String title, String text, int code) {
+    private synchronized void addHistory(String title, String text, int code, long postTime) {
         try {
             String all = title + " " + text;
             if (!all.contains("₹")) return;
@@ -81,7 +82,14 @@ public class NotifService extends NotificationListenerService {
             String amount = m.find() ? m.group(1) : "";
             String sum = (title.isEmpty() ? text : title).replace("\n", " ").replace("|", " ");
             if (sum.length() > 70) sum = sum.substring(0, 70);
-            String line = System.currentTimeMillis() + "|" + code + "|" + amount + "|" + sum;
+            String key = title + "#" + text;
+            long ts = postTime > 0 ? postTime : System.currentTimeMillis();
+            SharedPreferences sp0 = getSharedPreferences("c", MODE_PRIVATE);
+            String lk = sp0.getString("lastkey", "");
+            long lt = sp0.getLong("lastkeyt", 0);
+            if (key.equals(lk) && Math.abs(ts - lt) < 120000L) return; // same notification dobara: list mein mat dikhao
+            sp0.edit().putString("lastkey", key).putLong("lastkeyt", ts).apply();
+            String line = ts + "|" + code + "|" + amount + "|" + sum;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
             String old = sp.getString("hist", "");
             String[] parts = old.isEmpty() ? new String[0] : old.split("\n");
