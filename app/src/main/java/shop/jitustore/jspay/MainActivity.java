@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
     String gwFilter = "all";
     TextView hgAll, hgGp, hgBp;
     TextView hfAll, hfPaid, hfWarn;
-    TextView vSw, vHi, vEn, vAuto, vAll, vWarn, vSample1, vSample2, vSample3;
+    TextView vSw, vHi, vEn, vBn, vOr, vAuto, vAll, vWarn, vSample1, vSample2, vSample3;
     TextToSpeech ttsT;
     boolean ttsTReady = false;
     LinearLayout histBox;
@@ -200,12 +200,14 @@ public class MainActivity extends Activity {
         b.setLayoutParams(lp);
         b.setOnClickListener(l);
         press(b);
-        String bi = label.equals("Logout") ? "out" : label.equals("Check connection") ? "sync" : label.equals("Open Panel") ? "globe" : label.startsWith("Notification Access") ? "bell" : label.startsWith("Pop-up") ? "bell" : "";
+        String bi = label.equals("Logout") ? "out" : label.equals("Check connection") ? "wifi" : label.equals("Open Panel") ? "globe" : label.startsWith("Notification Access") ? "bell" : label.startsWith("Pop-up") ? "bell" : "";
         if (!bi.isEmpty()) {
             Ic d = new Ic(bi, filled ? Color.WHITE : TXT, dp(20));
             d.setBounds(0, 0, dp(20), dp(20));
-            b.setCompoundDrawables(d, null, null, null);
-            b.setCompoundDrawablePadding(dp(8));
+            android.text.SpannableStringBuilder sb = new android.text.SpannableStringBuilder("\uFFFC");
+            sb.setSpan(new Ic.Span(d), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            sb.append("   ").append(label);
+            b.setText(sb);
         }
         return b;
     }
@@ -475,7 +477,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.12", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.15", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -644,6 +646,21 @@ public class MainActivity extends Activity {
             s1.addView(t, p);
         }
         c1.addView(s1);
+        LinearLayout s1b = new LinearLayout(this);
+        s1b.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams s1bp = new LinearLayout.LayoutParams(-1, -2);
+        s1bp.topMargin = dp(6);
+        s1b.setLayoutParams(s1bp);
+        vBn = seg("\u09AC\u09BE\u0982\u09B2\u09BE", v -> setLang("bn"));
+        vOr = seg("\u0B13\u0B21\u0B3C\u0B3F\u0B06", v -> setLang("or"));
+        for (TextView t : new TextView[]{vBn, vOr}) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            p.rightMargin = dp(6);
+            s1b.addView(t, p);
+        }
+        View sp3 = new View(this);
+        s1b.addView(sp3, new LinearLayout.LayoutParams(0, 1, 1f));
+        c1.addView(s1b);
 
         TextView l2 = text("KAB BOLE", 11, MUTED, true);
         l2.setPadding(0, dp(14), 0, dp(6));
@@ -701,6 +718,13 @@ public class MainActivity extends Activity {
 
     LinearLayout vListBox;
     int voiceTries = 0;
+    boolean voiceShowAll = false;
+
+    static final String[] VL = {"hi", "en", "bn", "or"};
+
+    String vlName(String lg) {
+        return lg.equals("hi") ? "Hindi" : lg.equals("en") ? "English" : lg.equals("bn") ? "Bangla" : "Odia";
+    }
 
     void renderVoiceList() {
         if (vListBox == null) return;
@@ -713,40 +737,97 @@ public class MainActivity extends Activity {
             return;
         }
         voiceTries = 0;
-        final String cur = sp.getString("voice_name", "");
-        vListBox.addView(voiceRow("Phone ki default awaaz", "Auto \u00B7 jo phone ne chuni hai", cur.isEmpty(), null));
+        try {
+            String old = sp.getString("voice_name", "");
+            if (!old.isEmpty()) {
+                java.util.Set<android.speech.tts.Voice> vs0 = ttsT.getVoices();
+                if (vs0 != null) {
+                    for (android.speech.tts.Voice v0 : vs0) {
+                        if (old.equals(v0.getName())) {
+                            sp.edit().putString("voice_" + v0.getLocale().getLanguage(), old).apply();
+                        }
+                    }
+                }
+                sp.edit().remove("voice_name").apply();
+            }
+        } catch (Exception ignored) { }
+        boolean anyChosen = false;
+        for (String lg : VL) { if (!sp.getString("voice_" + lg, "").isEmpty()) anyChosen = true; }
         java.util.ArrayList<android.speech.tts.Voice> list = new java.util.ArrayList<>();
         try {
             java.util.Set<android.speech.tts.Voice> vs = ttsT.getVoices();
             if (vs != null) {
                 for (android.speech.tts.Voice v : vs) {
                     String lg = v.getLocale().getLanguage();
-                    if (lg.equals("hi") || lg.equals("en")) list.add(v);
+                    for (String k : VL) { if (lg.equals(k)) list.add(v); }
                 }
             }
         } catch (Exception ignored) { }
         java.util.Collections.sort(list, (a, b) -> {
-            int la = a.getLocale().getLanguage().equals("hi") ? 0 : 1;
-            int lb = b.getLocale().getLanguage().equals("hi") ? 0 : 1;
+            int la = java.util.Arrays.asList(VL).indexOf(a.getLocale().getLanguage());
+            int lb = java.util.Arrays.asList(VL).indexOf(b.getLocale().getLanguage());
             if (la != lb) return la - lb;
             int na = a.isNetworkConnectionRequired() ? 1 : 0;
             int nb = b.isNetworkConnectionRequired() ? 1 : 0;
             if (na != nb) return na - nb;
             return a.getName().compareTo(b.getName());
         });
-        int nh = 0, ne = 0;
+        boolean showAll = voiceShowAll || !anyChosen;
+        if (showAll) {
+            vListBox.addView(voiceRow("Phone ki default awaaz", "Auto \u00B7 sab bhasha ke liye", !anyChosen, null));
+        }
+        java.util.HashMap<String, Integer> cnt = new java.util.HashMap<>();
+        java.util.HashSet<String> have = new java.util.HashSet<>();
         for (android.speech.tts.Voice v : list) {
-            boolean hi = v.getLocale().getLanguage().equals("hi");
-            int num = hi ? ++nh : ++ne;
-            String title = (hi ? "Hindi" : "English") + " \u00B7 Awaaz " + num;
-            String sub = (v.isNetworkConnectionRequired() ? "Internet chahiye" : "Offline (net ke bina bhi chalegi)") + " \u00B7 " + v.getLocale().getDisplayCountry();
-            vListBox.addView(voiceRow(title, sub, v.getName().equals(cur), v));
+            String lg = v.getLocale().getLanguage();
+            have.add(lg);
+            int num = (cnt.containsKey(lg) ? cnt.get(lg) : 0) + 1;
+            cnt.put(lg, num);
+            boolean sel = v.getName().equals(sp.getString("voice_" + lg, ""));
+            if (!showAll && !sel) continue;
+            String title = vlName(lg) + " \u00B7 Awaaz " + num;
+            String sub = (v.isNetworkConnectionRequired() ? "Internet chahiye" : "Offline (net ke bina bhi chalegi)") + " \u00B7 " + v.getLocale().getDisplayCountry()
+                    + "  \u2022  " + vlName(lg) + " bolne par yehi";
+            vListBox.addView(voiceRow(title, sub, sel, v));
         }
         if (list.isEmpty()) {
-            TextView w = text("Is phone mein Hindi/English awaaz nahi mili. Neeche wala button dabakar awaaz download karo.", 13, Color.parseColor("#FECACA"), false);
+            TextView w = text("Is phone mein koi awaaz nahi mili. Neeche wala button dabakar awaaz download karo.", 13, Color.parseColor("#FECACA"), false);
             w.setPadding(0, dp(10), 0, dp(6));
             vListBox.addView(w);
         }
+        if (showAll) {
+            if (!have.contains("or")) {
+                TextView w = text("Odia: is phone mein Odia awaaz nahi hai, isliye Hindi awaaz se Odia bolegi.", 12, MUTED, false);
+                w.setPadding(0, dp(10), 0, 0);
+                vListBox.addView(w);
+            }
+            if (!have.contains("bn")) {
+                TextView w = text("Bangla: is phone mein Bangla awaaz nahi hai. Neeche wale button se download karo, warna English bolegi.", 12, MUTED, false);
+                w.setPadding(0, dp(6), 0, 0);
+                vListBox.addView(w);
+            }
+        }
+        if (anyChosen) {
+            TextView tg = text(voiceShowAll ? "Sirf meri chuni hui awaaz dikhao" : "Doosri awaaz badalni hai? Sab awaaz dikhao", 13, PRIMARY, true);
+            tg.setGravity(Gravity.CENTER);
+            tg.setPadding(0, dp(14), 0, dp(6));
+            tg.setOnClickListener(x -> { voiceShowAll = !voiceShowAll; renderVoiceList(); });
+            press(tg);
+            vListBox.addView(tg);
+        }
+    }
+
+    void previewVoice(android.speech.tts.Voice v) {
+        try {
+            if (ttsT == null || !ttsTReady) return;
+            ttsT.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            ttsT.setVoice(v);
+            String lang = v.getLocale().getLanguage();
+            if (!lang.equals("hi") && !lang.equals("bn") && !lang.equals("or")) lang = "en";
+            ttsT.speak(Voice.say("paid", lang, "26", "", "bp"), TextToSpeech.QUEUE_FLUSH, null, "pv1");
+            ttsT.speak(Voice.say("wrong", lang, "2", "500", "gp"), TextToSpeech.QUEUE_ADD, null, "pv2");
+        } catch (Exception ignored) { }
     }
 
     View voiceRow(String title, String sub, boolean on, final android.speech.tts.Voice v) {
@@ -775,13 +856,14 @@ public class MainActivity extends Activity {
         }
         r.setOnClickListener(x -> {
             if (v == null) {
-                sp.edit().remove("voice_name").apply();
+                sp.edit().remove("voice_hi").remove("voice_en").remove("voice_bn").remove("voice_or").remove("voice_name").apply();
+                voiceShowAll = false;
             } else {
-                sp.edit().putString("voice_name", v.getName()).putString("voice_lang", v.getLocale().getLanguage().equals("hi") ? "hi" : "en").apply();
+                sp.edit().putString("voice_" + v.getLocale().getLanguage(), v.getName()).apply();
             }
             sTap();
             refreshVoiceUi();
-            testVoice();
+            if (v != null) previewVoice(v);
         });
         press(r);
         return r;
@@ -792,8 +874,7 @@ public class MainActivity extends Activity {
 
     String curLang() {
         String pref = sp.getString("voice_lang", "auto");
-        if (pref.equals("hi")) return "hi";
-        if (pref.equals("en")) return "en";
+        if (pref.equals("hi") || pref.equals("en") || pref.equals("bn") || pref.equals("or")) return pref;
         return "hi";
     }
 
@@ -803,6 +884,8 @@ public class MainActivity extends Activity {
         setChip(vSw, on, "ON \u2713", "OFF");
         String l = sp.getString("voice_lang", "auto");
         paintSeg(vHi, l.equals("hi"));
+        paintSeg(vBn, l.equals("bn"));
+        paintSeg(vOr, l.equals("or"));
         paintSeg(vEn, l.equals("en"));
         paintSeg(vAuto, l.equals("auto"));
         String m = sp.getString("voice_mode", "all");
@@ -823,9 +906,12 @@ public class MainActivity extends Activity {
         try {
             ttsT.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-            String lang = Voice.pick(ttsT, sp.getString("voice_lang", "auto"), sp.getString("voice_name", ""));
-            if (lang.equals("en") && !sp.getString("voice_lang", "auto").equals("en")) {
-                Toast.makeText(this, "Hindi voice not found on this phone. Using English.", Toast.LENGTH_LONG).show();
+            String lang = Voice.pick(ttsT, sp);
+            String pf = sp.getString("voice_lang", "auto");
+            if (lang.equals("en") && !pf.equals("en")) {
+                Toast.makeText(this, "Is bhasha ki awaaz phone mein nahi mili. English use ho rahi hai.", Toast.LENGTH_LONG).show();
+            } else if (lang.equals("od")) {
+                Toast.makeText(this, "Odia awaaz phone mein nahi hai. Hindi awaaz se Odia bolegi.", Toast.LENGTH_LONG).show();
             }
             ttsT.speak(Voice.say("paid", lang, "26", ""), TextToSpeech.QUEUE_FLUSH, null, "test1");
             ttsT.speak(Voice.say("wrong", lang, "2", "500"), TextToSpeech.QUEUE_ADD, null, "test2");
@@ -1378,7 +1464,7 @@ public class MainActivity extends Activity {
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.12"));
+        c.addView(kv("Version", "v1.15"));
         c.addView(kv("Login Key", masked));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);

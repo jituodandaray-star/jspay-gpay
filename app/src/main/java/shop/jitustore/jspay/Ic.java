@@ -8,6 +8,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.text.style.ImageSpan;
 
 /** Khud ke bane line-style icons (emoji nahi). 24x24 ke dabbe mein banate hain. */
 public class Ic extends Drawable {
@@ -97,6 +98,12 @@ public class Ic extends Drawable {
                 arc(c, 4f, 4f, 20f, 20f, -40f, 270f);
                 poly(c, false, 20f, 3f, 20f, 8f, 15f, 8f);
                 break;
+            case "wifi":
+                arc(c, 8f, 15f, 16f, 23f, -135f, 90f);
+                arc(c, 4f, 11f, 20f, 27f, -135f, 90f);
+                arc(c, 0f, 7f, 24f, 31f, -135f, 90f);
+                line(c, 12f, 19.2f, 12f, 19.3f);
+                break;
             case "vol":
                 poly(c, true, 4f, 9f, 8f, 9f, 13f, 5f, 13f, 19f, 8f, 15f, 4f, 15f);
                 arc(c, 10f, 8f, 20f, 16f, -55f, 110f);
@@ -147,5 +154,20 @@ public class Ic extends Drawable {
                 c.drawCircle(12f, 12f, 8f, p);
         }
         c.restore();
+    }
+
+    /** Text ke saath icon ko seedha beech mein rakhta hai (button ke andar). */
+    public static class Span extends ImageSpan {
+        public Span(Drawable d) { super(d, ImageSpan.ALIGN_BASELINE); }
+
+        @Override
+        public void draw(Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom, Paint paint) {
+            Drawable b = getDrawable();
+            canvas.save();
+            float ty = top + ((bottom - top) - b.getBounds().height()) / 2f;
+            canvas.translate(x, ty);
+            b.draw(canvas);
+            canvas.restore();
+        }
     }
 }

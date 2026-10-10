@@ -64,7 +64,7 @@ public class NotifService extends NotificationListenerService {
     private void speakNow(String kind, String amount, String exp, String gw) {
         try {
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
-            String lang = Voice.pick(tts, sp.getString("voice_lang", "auto"), sp.getString("voice_name", ""));
+            String lang = Voice.pick(tts, sp);
             tts.speak(Voice.say(kind, lang, amount, exp, gw), TextToSpeech.QUEUE_ADD, null, "jspay" + System.nanoTime());
         } catch (Exception ignored) { }
     }
