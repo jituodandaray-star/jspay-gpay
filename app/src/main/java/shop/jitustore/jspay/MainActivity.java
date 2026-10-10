@@ -57,12 +57,13 @@ public class MainActivity extends Activity {
     LinearLayout loginBox, dashBox;
     EditText key;
     ScrollView sv;
-    ScrollView sv2;
     FrameLayout frameRef;
-    int page = 0;
-    float dX, dY;
-    View dot0, dot1;
-    TextView vSw, vHi, vEn, vAuto, vAll, vWarn, vSample1, vSample2, vSample3, vToday1, vToday2, vToday3;
+    String cur = "home";
+    java.util.HashMap<String, ScrollView> pages = new java.util.HashMap<>();
+    LinearLayout todayBox, histPageBox, setupBox, aboutBox;
+    String histFilter = "all";
+    TextView hfAll, hfPaid, hfWarn;
+    TextView vSw, vHi, vEn, vAuto, vAll, vWarn, vSample1, vSample2, vSample3;
     TextToSpeech ttsT;
     boolean ttsTReady = false;
     LinearLayout histBox;
@@ -236,7 +237,7 @@ public class MainActivity extends Activity {
         sv.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(36), dp(20), dp(64));
+        root.setPadding(dp(20), dp(36), dp(20), dp(28));
         sv.addView(root);
 
         // ---- header ----
@@ -259,6 +260,22 @@ public class MainActivity extends Activity {
         head.addView(names, new LinearLayout.LayoutParams(0, -2, 1f));
         pill = chip();
         head.addView(pill);
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setGravity(Gravity.CENTER);
+        menu.setBackground(box(Color.parseColor("#1E2748"), 14, LINE));
+        for (int i = 0; i < 3; i++) {
+            View bar = new View(this);
+            bar.setBackgroundColor(Color.WHITE);
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(dp(18), dp(2));
+            bp.topMargin = (i == 0) ? 0 : dp(4);
+            menu.addView(bar, bp);
+        }
+        LinearLayout.LayoutParams mp = new LinearLayout.LayoutParams(dp(44), dp(44));
+        mp.leftMargin = dp(10);
+        head.addView(menu, mp);
+        menu.setOnClickListener(v -> go("menu"));
+        press(menu);
         root.addView(head);
 
         TextView tag = text("Payments verified instantly. Zero manual work.", 14, MUTED, false);
@@ -396,26 +413,23 @@ public class MainActivity extends Activity {
         frame.addView(bg, new FrameLayout.LayoutParams(-1, -1));
         frame.addView(sv, new FrameLayout.LayoutParams(-1, -1));
         frameRef = frame;
-        sv2 = buildPage2();
-        frame.addView(sv2, new FrameLayout.LayoutParams(-1, -1));
-        sv2.setTranslationX(getResources().getDisplayMetrics().widthPixels);
-        LinearLayout dots = new LinearLayout(this);
-        dots.setOrientation(LinearLayout.HORIZONTAL);
-        dots.setGravity(Gravity.CENTER);
-        dot0 = new View(this);
-        dot1 = new View(this);
-        LinearLayout.LayoutParams dp0 = new LinearLayout.LayoutParams(dp(22), dp(8));
-        dp0.setMargins(dp(8), dp(12), dp(8), dp(12));
-        LinearLayout.LayoutParams dp1 = new LinearLayout.LayoutParams(dp(8), dp(8));
-        dp1.setMargins(dp(8), dp(12), dp(8), dp(12));
-        dots.addView(dot0, dp0);
-        dots.addView(dot1, dp1);
-        dot0.setOnClickListener(v -> showPage(0));
-        dot1.setOnClickListener(v -> showPage(1));
-        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        dlp.bottomMargin = dp(6);
-        frame.addView(dots, dlp);
-        paintDots();
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        pages.put("home", sv);
+        pages.put("menu", buildMenu());
+        pages.put("voice", buildPage2());
+        pages.put("today", buildToday());
+        pages.put("history", buildHistoryPage());
+        pages.put("setup", buildSetupPage());
+        pages.put("about", buildAboutPage());
+        for (java.util.Map.Entry<String, ScrollView> e : pages.entrySet()) {
+            if (e.getKey().equals("home")) continue;
+            frame.addView(e.getValue(), new FrameLayout.LayoutParams(-1, -1));
+            e.getValue().setTranslationX(sw);
+        }
+        if (!splashShown) {
+            splashShown = true;
+            frame.addView(buildSplash(), new FrameLayout.LayoutParams(-1, -1));
+        }
         setContentView(frame);
         try {
             ttsT = new TextToSpeech(getApplicationContext(), st2 -> { ttsTReady = (st2 == TextToSpeech.SUCCESS); });
@@ -429,40 +443,59 @@ public class MainActivity extends Activity {
     }
 
 
-    void paintDots() {
-        dot0.setBackground(box(page == 0 ? Color.parseColor("#818CF8") : Color.parseColor("#3B4570"), 6, 0));
-        dot1.setBackground(box(page == 1 ? Color.parseColor("#818CF8") : Color.parseColor("#3B4570"), 6, 0));
-        LinearLayout.LayoutParams a = (LinearLayout.LayoutParams) dot0.getLayoutParams();
-        LinearLayout.LayoutParams b = (LinearLayout.LayoutParams) dot1.getLayoutParams();
-        a.width = dp(page == 0 ? 22 : 8);
-        b.width = dp(page == 1 ? 22 : 8);
-        dot0.setLayoutParams(a);
-        dot1.setLayoutParams(b);
+    String parentOf(String n) {
+        if (n.equals("home")) return "home";
+        if (n.equals("menu")) return "home";
+        return "menu";
     }
 
-    void showPage(int p) {
-        if (p == page || sv == null) return;
-        page = p;
+    void go(String name) {
+        ScrollView nw = pages.get(name), old = pages.get(cur);
+        if (nw == null || old == null || name.equals(cur)) return;
         int w = getResources().getDisplayMetrics().widthPixels;
-        sv.animate().translationX(p == 0 ? 0 : -w).setDuration(260).start();
-        sv2.animate().translationX(p == 0 ? w : 0).setDuration(260).start();
-        paintDots();
+        nw.setTranslationX(w);
+        nw.animate().translationX(0).setDuration(260).start();
+        old.animate().translationX(-w).setDuration(260).start();
+        cur = name;
         sTap();
-        if (p == 1) refreshVoiceUi();
+        onShow(name);
+    }
+
+    void goBack() {
+        if (cur.equals("home")) return;
+        String p = parentOf(cur);
+        ScrollView from = pages.get(cur), to = pages.get(p);
+        if (from == null || to == null) return;
+        int w = getResources().getDisplayMetrics().widthPixels;
+        from.animate().translationX(w).setDuration(260).start();
+        to.animate().translationX(0).setDuration(260).start();
+        cur = p;
+        sTap();
+        onShow(p);
+    }
+
+    void jumpHome() {
+        int w = getResources().getDisplayMetrics().widthPixels;
+        for (java.util.Map.Entry<String, ScrollView> e : pages.entrySet()) {
+            e.getValue().animate().cancel();
+            e.getValue().setTranslationX(e.getKey().equals("home") ? 0 : w);
+        }
+        cur = "home";
+    }
+
+    void onShow(String name) {
+        try {
+            if (name.equals("voice")) refreshVoiceUi();
+            else if (name.equals("today")) renderTodayPage();
+            else if (name.equals("history")) renderHistoryPage();
+            else if (name.equals("setup")) renderSetupPage();
+            else if (name.equals("about")) renderAboutPage();
+        } catch (Exception ignored) { }
     }
 
     @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        try {
-            if (ev.getAction() == MotionEvent.ACTION_DOWN) { dX = ev.getX(); dY = ev.getY(); }
-            else if (ev.getAction() == MotionEvent.ACTION_UP) {
-                float dx = ev.getX() - dX, dy = ev.getY() - dY;
-                if (Math.abs(dx) > dp(90) && Math.abs(dx) > Math.abs(dy) * 1.6f) {
-                    if (dx < 0) showPage(1); else showPage(0);
-                }
-            }
-        } catch (Exception ignored) { }
-        return super.dispatchTouchEvent(ev);
+    public void onBackPressed() {
+        if (!cur.equals("home")) goBack(); else super.onBackPressed();
     }
 
     TextView seg(String label, View.OnClickListener l) {
@@ -484,9 +517,14 @@ public class MainActivity extends Activity {
         s2.setFillViewport(true);
         LinearLayout r2 = new LinearLayout(this);
         r2.setOrientation(LinearLayout.VERTICAL);
-        r2.setPadding(dp(20), dp(36), dp(20), dp(64));
+        r2.setPadding(dp(20), dp(36), dp(20), dp(28));
         s2.addView(r2);
 
+        TextView back = text("\u2039  Back", 16, PRIMARY, true);
+        back.setPadding(0, 0, dp(20), dp(14));
+        back.setOnClickListener(v -> goBack());
+        press(back);
+        r2.addView(back);
         LinearLayout head = new LinearLayout(this);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
@@ -501,8 +539,8 @@ public class MainActivity extends Activity {
         LinearLayout names = new LinearLayout(this);
         names.setOrientation(LinearLayout.VERTICAL);
         names.setPadding(dp(14), 0, 0, 0);
-        names.addView(text("Voice & Alerts", 22, TXT, true));
-        names.addView(text("Advanced settings", 13, MUTED, false));
+        names.addView(text("Voice Alert", 22, TXT, true));
+        names.addView(text("Awaaz settings", 13, MUTED, false));
         head.addView(names, new LinearLayout.LayoutParams(0, -2, 1f));
         r2.addView(head);
 
@@ -569,16 +607,6 @@ public class MainActivity extends Activity {
         vSample3.setBackground(box(Color.parseColor("#22DC2626"), 12, BAD));
         r2.addView(c2);
 
-        LinearLayout c3 = card();
-        c3.addView(text("AAJ", 11, MUTED, true));
-        vToday1 = text("", 15, TXT, false);
-        vToday2 = text("", 15, TXT, false);
-        vToday3 = text("", 15, TXT, false);
-        for (TextView t : new TextView[]{vToday1, vToday2, vToday3}) {
-            t.setPadding(0, dp(8), 0, 0);
-            c3.addView(t);
-        }
-        r2.addView(c3);
         return s2;
     }
 
@@ -607,7 +635,6 @@ public class MainActivity extends Activity {
         vSample1.setText("\u201C" + Voice.say("paid", lg, "26", "") + "\u201D");
         vSample2.setText("\u201C" + Voice.say("wrong", lg, "2", "500") + "\u201D");
         vSample3.setText("\u201C" + Voice.say("noorder", lg, "5", "") + "\u201D");
-        renderToday();
     }
 
     void testVoice() {
@@ -629,43 +656,645 @@ public class MainActivity extends Activity {
         }
     }
 
-    void renderToday() {
-        if (vToday1 == null) return;
+    @Override
+    protected void onDestroy() {
+        try { if (ttsT != null) { ttsT.stop(); ttsT.shutdown(); } } catch (Exception ignored) { }
+        super.onDestroy();
+    }
+
+
+    // ================= MENU + PAGES =================
+    ScrollView mkPage(String icon, String title, String sub, LinearLayout[] out) {
+        ScrollView s = new ScrollView(this);
+        s.setFillViewport(true);
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.VERTICAL);
+        r.setPadding(dp(20), dp(36), dp(20), dp(28));
+        s.addView(r);
+        TextView back = text("‹  Back", 16, PRIMARY, true);
+        back.setPadding(0, 0, dp(20), dp(14));
+        back.setOnClickListener(v -> goBack());
+        press(back);
+        r.addView(back);
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        TextView logo = text(icon, 20, Color.WHITE, true);
+        logo.setGravity(Gravity.CENTER);
+        GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+        lg.setCornerRadius(dp(16));
+        logo.setBackground(lg);
+        logo.setLayoutParams(new LinearLayout.LayoutParams(dp(54), dp(54)));
+        head.addView(logo);
+        LinearLayout names = new LinearLayout(this);
+        names.setOrientation(LinearLayout.VERTICAL);
+        names.setPadding(dp(14), 0, 0, 0);
+        names.addView(text(title, 22, TXT, true));
+        names.addView(text(sub, 13, MUTED, false));
+        head.addView(names, new LinearLayout.LayoutParams(0, -2, 1f));
+        r.addView(head);
+        out[0] = r;
+        return s;
+    }
+
+    LinearLayout menuItem(String icon, String color, String title, String sub, String target) {
+        LinearLayout it = new LinearLayout(this);
+        it.setOrientation(LinearLayout.HORIZONTAL);
+        it.setGravity(Gravity.CENTER_VERTICAL);
+        it.setPadding(dp(14), dp(14), dp(14), dp(14));
+        it.setBackground(box(CARD, 18, LINE));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(12);
+        it.setLayoutParams(lp);
+        TextView ic = text(icon, 18, Color.WHITE, true);
+        ic.setGravity(Gravity.CENTER);
+        ic.setBackground(box(Color.parseColor(color), 12, 0));
+        it.addView(ic, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(14), 0, 0, 0);
+        t.addView(text(title, 16, TXT, true));
+        t.addView(text(sub, 12, MUTED, false));
+        it.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        it.addView(text("›", 24, PRIMARY, true));
+        it.setOnClickListener(v -> go(target));
+        press(it);
+        return it;
+    }
+
+    ScrollView buildMenu() {
+        LinearLayout[] o = new LinearLayout[1];
+        ScrollView s = mkPage("JS", "Menu", "Sab features yahan", o);
+        o[0].addView(menuItem("V", "#312E81", "Voice Alert", "Awaaz, bhasha, kab bole", "voice"));
+        o[0].addView(menuItem("₹", "#064E3B", "Aaj ka Hisaab", "Payments, total, warning", "today"));
+        o[0].addView(menuItem("H", "#7C2D12", "Payment History", "Purani payments, hare/laal box", "history"));
+        o[0].addView(menuItem("S", "#1E3A8A", "Setup Check", "Sab ON hai ya nahi, ek jagah", "setup"));
+        o[0].addView(menuItem("i", "#4C1D95", "About & Help", "Version, Open Panel, madad", "about"));
+        return s;
+    }
+
+    ScrollView buildToday() {
+        LinearLayout[] o = new LinearLayout[1];
+        ScrollView s = mkPage("₹", "Aaj ka Hisaab", "Aaj ki payments", o);
+        todayBox = new LinearLayout(this);
+        todayBox.setOrientation(LinearLayout.VERTICAL);
+        o[0].addView(todayBox);
+        return s;
+    }
+
+    ScrollView buildHistoryPage() {
+        LinearLayout[] o = new LinearLayout[1];
+        ScrollView s = mkPage("H", "Payment History", "Aakhri 50", o);
+        LinearLayout fr = new LinearLayout(this);
+        fr.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(-1, -2);
+        flp.topMargin = dp(14);
+        fr.setLayoutParams(flp);
+        hfAll = seg("Sab", v -> { histFilter = "all"; renderHistoryPage(); });
+        hfPaid = seg("Paid", v -> { histFilter = "paid"; renderHistoryPage(); });
+        hfWarn = seg("Warning", v -> { histFilter = "warn"; renderHistoryPage(); });
+        for (TextView t : new TextView[]{hfAll, hfPaid, hfWarn}) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            p.rightMargin = dp(6);
+            fr.addView(t, p);
+        }
+        o[0].addView(fr);
+        histPageBox = new LinearLayout(this);
+        histPageBox.setOrientation(LinearLayout.VERTICAL);
+        o[0].addView(histPageBox);
+        return s;
+    }
+
+    ScrollView buildSetupPage() {
+        LinearLayout[] o = new LinearLayout[1];
+        ScrollView s = mkPage("S", "Setup Check", "Sab theek hai ya nahi", o);
+        setupBox = new LinearLayout(this);
+        setupBox.setOrientation(LinearLayout.VERTICAL);
+        o[0].addView(setupBox);
+        return s;
+    }
+
+    ScrollView buildAboutPage() {
+        LinearLayout[] o = new LinearLayout[1];
+        ScrollView s = mkPage("i", "About & Help", "JS PAY GPay Auto Verify", o);
+        aboutBox = new LinearLayout(this);
+        aboutBox.setOrientation(LinearLayout.VERTICAL);
+        o[0].addView(aboutBox);
+        return s;
+    }
+
+    // ----- history helpers -----
+    java.util.ArrayList<String[]> loadHist() {
+        java.util.ArrayList<String[]> out = new java.util.ArrayList<>();
         String h = sp.getString("hist", "");
-        int cnt = 0, warn = 0;
-        double tot = 0;
+        if (h.isEmpty()) return out;
+        for (String line : h.split("\n")) {
+            String[] f = line.split("\\|", 6);
+            if (f.length < 4) continue;
+            String[] g = new String[6];
+            for (int i = 0; i < 6; i++) g[i] = i < f.length ? f[i] : "";
+            out.add(g);
+        }
+        return out;
+    }
+
+    String kindOf(String[] f) {
+        int code = -1;
+        try { code = Integer.parseInt(f[1]); } catch (Exception ignored) { }
+        if (code != 200) return "failed";
+        if (f[4].equals("wrong")) return "wrong";
+        if (f[4].equals("no_order")) return "noorder";
+        if (f[4].equals("paid")) return "paid";
+        return "plain";
+    }
+
+    double amtOf(String[] f) {
+        try { return Double.parseDouble(f[2].replace(",", "")); } catch (Exception e) { return 0; }
+    }
+
+    String money(double v) {
+        return (v == Math.floor(v)) ? String.valueOf((long) v) : String.format(Locale.US, "%.2f", v);
+    }
+
+    String whoOf(String[] f) {
+        java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)\\s+at\\s").matcher(f[3] + " ");
+        return nm.find() ? nm.group(1).trim() : "";
+    }
+
+    View payItem(String[] f) {
+        String kind = kindOf(f);
+        boolean bad = kind.equals("wrong") || kind.equals("noorder") || kind.equals("failed");
+        boolean paid = kind.equals("paid");
+        long ts = 0;
+        try { ts = Long.parseLong(f[0]); } catch (Exception ignored) { }
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout left = new LinearLayout(this);
+        left.setOrientation(LinearLayout.VERTICAL);
+        String a = f[2].isEmpty() ? "Payment" : "₹" + f[2];
+        left.addView(text(a, 17, bad ? Color.parseColor("#F87171") : Color.parseColor("#4ADE80"), true));
+        String w = whoOf(f);
+        if (!w.isEmpty()) left.addView(text("from " + w, 14, TXT, false));
+        left.addView(text(new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(ts)), 12, MUTED, false));
+        r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView c = chip();
+        if (paid) { c.setText("✓ Order PAID"); c.setBackground(box(GOOD, 20, 0)); }
+        else if (kind.equals("wrong")) { c.setText("✕ Galat amount"); c.setBackground(box(BAD, 20, 0)); }
+        else if (kind.equals("noorder")) { c.setText("✕ Bina order"); c.setBackground(box(BAD, 20, 0)); }
+        else if (kind.equals("failed")) { c.setText("✕ Failed"); c.setBackground(box(BAD, 20, 0)); }
+        else { c.setText("✓ Sent"); c.setBackground(box(GOOD, 20, 0)); }
+        r.addView(c);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(10);
+        if (!paid && !bad) {
+            r.setPadding(0, dp(6), 0, dp(6));
+            r.setLayoutParams(lp);
+            return r;
+        }
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(12), dp(8), dp(12), dp(10));
+        card.setBackground(box(bad ? Color.parseColor("#26DC2626") : Color.parseColor("#2616A34A"), 14, bad ? BAD : GOOD));
+        card.addView(r);
+        String note = paid ? "Order mil gaya. Paisa credit ho gaya."
+                : kind.equals("wrong") ? "Order ₹" + f[5] + " ka tha, ₹" + f[2] + " aaya. Credit nahi hoga."
+                : kind.equals("noorder") ? "Koi order nahi tha. Credit nahi hoga."
+                : "Server tak nahi pahunchi.";
+        TextView nt = text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false);
+        nt.setPadding(0, dp(6), 0, 0);
+        card.addView(nt);
+        card.setLayoutParams(lp);
+        return card;
+    }
+
+    LinearLayout statBox(String num, String label, int stroke, int tint) {
+        LinearLayout b = new LinearLayout(this);
+        b.setOrientation(LinearLayout.VERTICAL);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(dp(6), dp(12), dp(6), dp(12));
+        b.setBackground(box(tint, 14, stroke));
+        TextView n = text(num, 22, Color.WHITE, true);
+        n.setGravity(Gravity.CENTER);
+        b.addView(n);
+        TextView l = text(label, 12, MUTED, false);
+        l.setGravity(Gravity.CENTER);
+        b.addView(l);
+        return b;
+    }
+
+    void renderTodayPage() {
+        if (todayBox == null) return;
+        todayBox.removeAllViews();
         java.util.Calendar c = java.util.Calendar.getInstance();
         c.set(java.util.Calendar.HOUR_OF_DAY, 0);
         c.set(java.util.Calendar.MINUTE, 0);
         c.set(java.util.Calendar.SECOND, 0);
         c.set(java.util.Calendar.MILLISECOND, 0);
         long start = c.getTimeInMillis();
-        if (!h.isEmpty()) {
-            for (String line : h.split("\n")) {
-                String[] f = line.split("\\|", 6);
-                if (f.length < 4) continue;
-                try {
-                    long ts = Long.parseLong(f[0]);
-                    if (ts < start) continue;
-                    int code = Integer.parseInt(f[1]);
-                    String res = f.length > 4 ? f[4] : "";
-                    cnt++;
-                    if (code == 200 && (res.equals("wrong") || res.equals("no_order"))) warn++;
-                    else if (code == 200) tot += Double.parseDouble(f[2].replace(",", ""));
-                } catch (Exception ignored) { }
-            }
+        java.util.ArrayList<String[]> today = new java.util.ArrayList<>();
+        int paid = 0, warn = 0;
+        double total = 0;
+        long lastTs = 0;
+        for (String[] f : loadHist()) {
+            long ts = 0;
+            try { ts = Long.parseLong(f[0]); } catch (Exception ignored) { }
+            if (ts < start) continue;
+            today.add(f);
+            String k = kindOf(f);
+            if (k.equals("paid") || k.equals("plain")) { paid++; total += amtOf(f); }
+            else if (k.equals("wrong") || k.equals("noorder")) warn++;
+            if (ts > lastTs) lastTs = ts;
         }
-        String ts2 = (tot == Math.floor(tot)) ? String.valueOf((long) tot) : String.format(Locale.US, "%.2f", tot);
-        vToday1.setText("Payments:  " + cnt);
-        vToday2.setText("Total received:  \u20B9" + ts2);
-        vToday3.setText("Warnings:  " + warn);
-        vToday3.setTextColor(warn > 0 ? Color.parseColor("#F87171") : TXT);
+        LinearLayout big = card();
+        big.addView(text("AAJ TOTAL MILA", 11, MUTED, true));
+        TextView t = text("₹" + money(total), 38, Color.parseColor("#34D399"), true);
+        t.setPadding(0, dp(6), 0, dp(2));
+        big.addView(t);
+        big.addView(text(lastTs > 0 ? "Aakhri payment: " + new SimpleDateFormat("hh:mm a", Locale.US).format(new Date(lastTs)) : "Aaj abhi koi payment nahi aayi", 13, MUTED, false));
+        todayBox.addView(big);
+        LinearLayout st = new LinearLayout(this);
+        st.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
+        slp.topMargin = dp(14);
+        st.setLayoutParams(slp);
+        LinearLayout b1 = statBox(String.valueOf(paid), "Paid", GOOD, Color.parseColor("#2616A34A"));
+        LinearLayout b2 = statBox(String.valueOf(warn), "Warning", BAD, Color.parseColor("#26DC2626"));
+        LinearLayout b3 = statBox(String.valueOf(today.size()), "Total", LINE, CARD);
+        for (LinearLayout b : new LinearLayout[]{b1, b2, b3}) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            p.rightMargin = dp(8);
+            st.addView(b, p);
+        }
+        todayBox.addView(st);
+        LinearLayout lc = card();
+        lc.addView(text("AAJ KI PAYMENTS", 11, MUTED, true));
+        if (today.isEmpty()) {
+            TextView e = text("Aaj koi payment nahi aayi.", 13, MUTED, false);
+            e.setPadding(0, dp(10), 0, 0);
+            lc.addView(e);
+        } else {
+            int n = 0;
+            for (String[] f : today) { if (n++ >= 50) break; lc.addView(payItem(f)); }
+        }
+        todayBox.addView(lc);
     }
 
-    @Override
-    protected void onDestroy() {
-        try { if (ttsT != null) { ttsT.stop(); ttsT.shutdown(); } } catch (Exception ignored) { }
-        super.onDestroy();
+    void renderHistoryPage() {
+        if (histPageBox == null) return;
+        paintSeg(hfAll, histFilter.equals("all"));
+        paintSeg(hfPaid, histFilter.equals("paid"));
+        paintSeg(hfWarn, histFilter.equals("warn"));
+        histPageBox.removeAllViews();
+        int n = 0;
+        for (String[] f : loadHist()) {
+            String k = kindOf(f);
+            boolean isPaid = k.equals("paid") || k.equals("plain");
+            boolean isWarn = k.equals("wrong") || k.equals("noorder") || k.equals("failed");
+            if (histFilter.equals("paid") && !isPaid) continue;
+            if (histFilter.equals("warn") && !isWarn) continue;
+            if (n++ >= 50) break;
+            histPageBox.addView(payItem(f));
+        }
+        if (n == 0) {
+            TextView e = text("Koi payment nahi mili.", 14, MUTED, false);
+            e.setPadding(0, dp(18), 0, 0);
+            histPageBox.addView(e);
+        }
+    }
+
+    void renderSetupPage() {
+        if (setupBox == null) return;
+        setupBox.removeAllViews();
+        String k = sp.getString("secret", "");
+        boolean verified = k.length() >= 5 && sp.getBoolean("verified", true);
+        boolean access = notifOn();
+        boolean batt = battOk();
+        boolean net = NotifService.online(this);
+        boolean ttsOk = false, hiOk = false;
+        try {
+            ttsOk = ttsT != null && ttsTReady;
+            if (ttsOk) hiOk = ttsT.isLanguageAvailable(new Locale("hi", "IN")) >= TextToSpeech.LANG_AVAILABLE;
+        } catch (Exception ignored) { }
+        LinearLayout c = card();
+        TextView c1 = chip(), c2 = chip(), c3 = chip(), c4 = chip(), c5 = chip();
+        setChip(c1, verified, "Logged in", "Not logged in");
+        setChip(c2, access, "ON ✓", "OFF - Fix");
+        setChip(c3, batt, "ON ✓", "OFF - Fix");
+        setChip(c4, net, "Online ✓", "OFFLINE");
+        setChip(c5, ttsOk && hiOk, "Hindi ✓", ttsOk ? "English only" : "Not ready");
+        c.addView(row("Login Key", c1, null));
+        c.addView(row("Notification Access", c2, v -> { if (!notifOn()) startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }));
+        c.addView(row("Background / Battery", c3, v -> {
+            if (!battOk()) startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
+        }));
+        c.addView(row("Internet", c4, v -> startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS))));
+        c.addView(row("Voice engine", c5, null));
+        setupBox.addView(c);
+        LinearLayout lc = card();
+        lc.addView(text("AAKHRI SIGNAL", 11, MUTED, true));
+        long last = sp.getLong("last", 0);
+        TextView lt = text(last > 0 ? new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(last)) + "  (server " + sp.getInt("code", 0) + ")" : "Abhi koi signal nahi", 14, TXT, false);
+        lt.setPadding(0, dp(8), 0, 0);
+        lc.addView(lt);
+        setupBox.addView(lc);
+        setupBox.addView(button("Check connection", true, v -> verify(sp.getString("secret", ""), false)));
+        setupBox.addView(button("Notification Access kholo", false, v -> startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))));
+        String warn = "";
+        if (!access) warn = "Notification Access OFF hai. Payment detect nahi hogi. Upar 'Fix' dabao.";
+        else if (!batt) warn = "Battery / Background OFF hai. Phone band hone par payment miss ho sakti hai. 'Fix' dabao.";
+        else if (!net) warn = "Internet band hai. Payment server tak nahi pahunchegi.";
+        else if (!verified) warn = "Login Key daalo.";
+        if (!warn.isEmpty()) {
+            TextView w = text(warn, 13, Color.parseColor("#FECACA"), false);
+            w.setPadding(dp(12), dp(10), dp(12), dp(10));
+            w.setBackground(box(Color.parseColor("#26DC2626"), 12, BAD));
+            LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(-1, -2);
+            wp.topMargin = dp(14);
+            w.setLayoutParams(wp);
+            setupBox.addView(w);
+        }
+    }
+
+    LinearLayout kv(String key, String val) {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setPadding(0, dp(8), 0, dp(8));
+        r.addView(text(key, 15, MUTED, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        r.addView(text(val, 15, TXT, true));
+        return r;
+    }
+
+    void renderAboutPage() {
+        if (aboutBox == null) return;
+        aboutBox.removeAllViews();
+        String k = sp.getString("secret", "");
+        String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
+        LinearLayout c = card();
+        c.addView(kv("Version", "v1.7"));
+        c.addView(kv("Login Key", masked));
+        c.addView(kv("Server", "jitustore.shop"));
+        aboutBox.addView(c);
+        aboutBox.addView(button("Open Panel", true, v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://jitustore.shop/pay/auth/gpay.php")))));
+        aboutBox.addView(button("Logout", false, v -> {
+            sp.edit().remove("secret").remove("verified").apply();
+            Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
+            jumpHome();
+            refresh();
+        }));
+        LinearLayout h = card();
+        h.addView(text("MADAD", 11, MUTED, true));
+        String[][] qa = {
+            {"Payment nahi aa rahi?", "Setup Check kholo, sab ON hona chahiye."},
+            {"Awaaz nahi aa rahi?", "Media volume badhao aur Voice Alert ON rakho."},
+            {"Laal box kya hai?", "Galat amount ya bina order ki payment. Credit nahi hoga."}
+        };
+        for (String[] q : qa) {
+            TextView a = text(q[0], 14, TXT, true);
+            a.setPadding(0, dp(12), 0, 0);
+            h.addView(a);
+            h.addView(text(q[1], 13, MUTED, false));
+        }
+        aboutBox.addView(h);
+    }
+
+
+    // ================= SPLASH (opening screen) =================
+    static boolean splashShown = false;
+    java.util.ArrayList<android.animation.Animator> splashAnims = new java.util.ArrayList<>();
+
+    void floatAnim(View v, int dyDp, long dur, float baseRot, float rotDelta, long delay) {
+        android.animation.ObjectAnimator a = android.animation.ObjectAnimator.ofFloat(v, "translationY", -dp(dyDp), dp(dyDp));
+        a.setDuration(dur);
+        a.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+        a.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        a.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        a.setStartDelay(delay);
+        a.start();
+        splashAnims.add(a);
+        v.setRotation(baseRot - rotDelta);
+        android.animation.ObjectAnimator r = android.animation.ObjectAnimator.ofFloat(v, "rotation", baseRot - rotDelta, baseRot + rotDelta);
+        r.setDuration(dur + 900);
+        r.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+        r.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        r.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        r.setStartDelay(delay);
+        r.start();
+        splashAnims.add(r);
+    }
+
+    TextView chipFloat(String s, int c1, int c2, int size) {
+        TextView t = text(s, size, Color.WHITE, true);
+        t.setPadding(dp(13), dp(9), dp(13), dp(9));
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, new int[]{c1, c2});
+        g.setCornerRadius(dp(16));
+        t.setBackground(g);
+        return t;
+    }
+
+    LinearLayout payMini(String amt, String chipText, boolean good) {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(8), dp(7), dp(8), dp(7));
+        r.setBackground(box(good ? Color.parseColor("#3316A34A") : Color.parseColor("#33DC2626"), 10, good ? GOOD : BAD));
+        r.addView(text(amt, 12, good ? Color.parseColor("#34D399") : Color.parseColor("#F87171"), true), new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView c = text(chipText, 7, Color.WHITE, true);
+        c.setPadding(dp(6), dp(3), dp(6), dp(3));
+        c.setBackground(box(good ? GOOD : BAD, 8, 0));
+        r.addView(c);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(8);
+        r.setLayoutParams(lp);
+        return r;
+    }
+
+    View buildPhoneView(TextView[] totalOut) {
+        FrameLayout body = new FrameLayout(this);
+        GradientDrawable pg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#8B8FFF"), Color.parseColor("#3B2F9C"), Color.parseColor("#1B1555")});
+        pg.setCornerRadius(dp(36));
+        body.setBackground(pg);
+        LinearLayout scr = new LinearLayout(this);
+        scr.setOrientation(LinearLayout.VERTICAL);
+        scr.setPadding(dp(12), dp(22), dp(12), dp(12));
+        scr.setBackground(box(Color.parseColor("#0B1128"), 31, 0));
+        FrameLayout.LayoutParams sp1 = new FrameLayout.LayoutParams(-1, -1);
+        sp1.setMargins(dp(5), dp(5), dp(5), dp(5));
+        body.addView(scr, sp1);
+        View notch = new View(this);
+        notch.setBackground(box(Color.parseColor("#04060F"), 8, 0));
+        FrameLayout.LayoutParams nl = new FrameLayout.LayoutParams(dp(54), dp(12), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        nl.topMargin = dp(12);
+        body.addView(notch, nl);
+
+        LinearLayout hd = new LinearLayout(this);
+        hd.setOrientation(LinearLayout.HORIZONTAL);
+        hd.setGravity(Gravity.CENTER_VERTICAL);
+        TextView lg = text("JS", 12, Color.WHITE, true);
+        lg.setGravity(Gravity.CENTER);
+        GradientDrawable lgd = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+        lgd.setCornerRadius(dp(9));
+        lg.setBackground(lgd);
+        hd.addView(lg, new LinearLayout.LayoutParams(dp(30), dp(30)));
+        LinearLayout nm = new LinearLayout(this);
+        nm.setOrientation(LinearLayout.VERTICAL);
+        nm.setPadding(dp(7), 0, 0, 0);
+        nm.addView(text("JS PAY", 12, Color.WHITE, true));
+        nm.addView(text("GPay Auto Verify", 7, MUTED, false));
+        hd.addView(nm, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView lv = text("LIVE", 8, Color.WHITE, true);
+        lv.setPadding(dp(7), dp(3), dp(7), dp(3));
+        lv.setBackground(box(GOOD, 10, 0));
+        hd.addView(lv);
+        scr.addView(hd);
+
+        LinearLayout tc = new LinearLayout(this);
+        tc.setOrientation(LinearLayout.VERTICAL);
+        tc.setPadding(dp(9), dp(9), dp(9), dp(9));
+        tc.setBackground(box(CARD, 12, LINE));
+        tc.addView(text("AAJ TOTAL", 7, MUTED, true));
+        TextView tot = text("₹0", 26, Color.parseColor("#34D399"), true);
+        tc.addView(tot);
+        tc.addView(text("5 payments", 8, MUTED, false));
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(-1, -2);
+        tlp.topMargin = dp(12);
+        scr.addView(tc, tlp);
+        totalOut[0] = tot;
+        scr.addView(payMini("₹26", "✓ Order PAID", true));
+        scr.addView(payMini("₹2", "✕ Galat amount", false));
+        scr.addView(payMini("₹11", "✓ Order PAID", true));
+        return body;
+    }
+
+    View buildSplash() {
+        final FrameLayout sp0 = new FrameLayout(this);
+        GradientDrawable bgd = new GradientDrawable();
+        bgd.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        bgd.setGradientCenter(0.5f, 0.38f);
+        bgd.setGradientRadius(dp(520));
+        bgd.setColors(new int[]{Color.parseColor("#3A2A9C"), Color.parseColor("#16124A"), Color.parseColor("#0B1020")});
+        sp0.setBackground(bgd);
+        sp0.setClickable(true);
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        int sh = getResources().getDisplayMetrics().heightPixels;
+        int top = (int) (sh * 0.09f);
+
+        // glow
+        View glow = new View(this);
+        GradientDrawable gd = new GradientDrawable();
+        gd.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        gd.setGradientRadius(dp(210));
+        gd.setColors(new int[]{Color.parseColor("#778B5CF6"), Color.parseColor("#008B5CF6")});
+        glow.setBackground(gd);
+        FrameLayout.LayoutParams gl = new FrameLayout.LayoutParams(dp(420), dp(420), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        gl.topMargin = top - dp(10);
+        sp0.addView(glow, gl);
+        android.animation.ObjectAnimator ga = android.animation.ObjectAnimator.ofFloat(glow, "alpha", 0.55f, 1f);
+        ga.setDuration(1500);
+        ga.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+        ga.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        ga.start();
+        splashAnims.add(ga);
+
+        // phone
+        final TextView[] tot = new TextView[1];
+        View phone = buildPhoneView(tot);
+        FrameLayout.LayoutParams pl = new FrameLayout.LayoutParams(dp(200), dp(400), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        pl.topMargin = top;
+        sp0.addView(phone, pl);
+        floatAnim(phone, 9, 2100, -7f, 2.5f, 0);
+
+        // floating chips
+        TextView c1 = chipFloat("✓ ₹26 Order PAID", Color.parseColor("#16A34A"), Color.parseColor("#059669"), 13);
+        FrameLayout.LayoutParams l1 = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
+        l1.leftMargin = dp(14);
+        l1.topMargin = top + dp(70);
+        sp0.addView(c1, l1);
+        floatAnim(c1, 8, 1700, -6f, 3f, 200);
+        TextView c2 = chipFloat("₹78 aaj mila", Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6"), 13);
+        FrameLayout.LayoutParams l2 = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.RIGHT);
+        l2.rightMargin = dp(10);
+        l2.topMargin = top + dp(200);
+        sp0.addView(c2, l2);
+        floatAnim(c2, 10, 1900, 5f, 3f, 450);
+        TextView c3 = chipFloat("Auto verify · 24x7", Color.parseColor("#0EA5E9"), Color.parseColor("#6366F1"), 12);
+        FrameLayout.LayoutParams l3 = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
+        l3.leftMargin = dp(26);
+        l3.topMargin = top + dp(320);
+        sp0.addView(c3, l3);
+        floatAnim(c3, 7, 1500, 4f, 3f, 700);
+
+        // sparkle dots
+        int[][] dots = {{40, 60, 6}, {sw / 3 + 120, 90, 8}, {70, 520, 10}, {sw - 80, 500, 7}};
+        for (int i = 0; i < dots.length; i++) {
+            View d = new View(this);
+            d.setBackground(box(i % 2 == 0 ? Color.parseColor("#A78BFA") : Color.parseColor("#34D399"), 8, 0));
+            FrameLayout.LayoutParams dl = new FrameLayout.LayoutParams(dp(dots[i][2]), dp(dots[i][2]), Gravity.TOP | Gravity.LEFT);
+            dl.leftMargin = dp(dots[i][0] > 600 ? 300 : dots[i][0] / 3);
+            dl.topMargin = (int) (sh * 0.06f) + dp(dots[i][1] / 2);
+            sp0.addView(d, dl);
+            floatAnim(d, 6 + i * 2, 1400 + i * 300, 0f, 0f, i * 150);
+        }
+
+        // bottom: title + loading
+        LinearLayout lw = new LinearLayout(this);
+        lw.setOrientation(LinearLayout.VERTICAL);
+        lw.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView title = text("JS PAY", 28, Color.WHITE, true);
+        title.setGravity(Gravity.CENTER);
+        lw.addView(title);
+        TextView sub = text("GPay Auto Verify", 13, Color.parseColor("#B4BCF0"), false);
+        sub.setGravity(Gravity.CENTER);
+        lw.addView(sub);
+        final int trackW = sw - dp(60);
+        FrameLayout track = new FrameLayout(this);
+        track.setBackground(box(Color.parseColor("#1FFFFFFF"), 6, 0));
+        final View fill = new View(this);
+        GradientDrawable fg = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#A78BFA"), Color.parseColor("#34D399")});
+        fg.setCornerRadius(dp(6));
+        fill.setBackground(fg);
+        track.addView(fill, new FrameLayout.LayoutParams(1, -1));
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(trackW, dp(7));
+        tl.topMargin = dp(18);
+        lw.addView(track, tl);
+        final TextView st = text("Connecting to server...", 13, Color.parseColor("#C7D2FE"), false);
+        st.setGravity(Gravity.CENTER);
+        st.setPadding(0, dp(10), 0, 0);
+        lw.addView(st);
+        FrameLayout.LayoutParams wl = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        wl.bottomMargin = dp(56);
+        sp0.addView(lw, wl);
+
+        final boolean[] done = {false};
+        final Runnable finish = () -> {
+            if (done[0]) return;
+            done[0] = true;
+            sp0.animate().alpha(0f).setDuration(380).withEndAction(() -> {
+                for (android.animation.Animator a : splashAnims) a.cancel();
+                splashAnims.clear();
+                if (sp0.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) sp0.getParent()).removeView(sp0);
+            }).start();
+        };
+        sp0.setOnClickListener(v -> finish.run());
+        android.animation.ValueAnimator load = android.animation.ValueAnimator.ofFloat(0f, 1f);
+        load.setDuration(3000);
+        load.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+        load.addUpdateListener(an -> {
+            float f = (Float) an.getAnimatedValue();
+            FrameLayout.LayoutParams fl = (FrameLayout.LayoutParams) fill.getLayoutParams();
+            fl.width = Math.max(1, (int) (trackW * f));
+            fill.setLayoutParams(fl);
+            tot[0].setText("₹" + (int) (78 * f));
+            st.setText(f < 0.35f ? "Connecting to server..." : f < 0.7f ? "Checking setup..." : f < 1f ? "Almost ready..." : "Ready");
+            if (f >= 1f) finish.run();
+        });
+        load.start();
+        splashAnims.add(load);
+        return sp0;
     }
 
     @Override
@@ -673,6 +1302,7 @@ public class MainActivity extends Activity {
         super.onResume();
         if (bg != null) bg.go();
         refresh();
+        onShow(cur);
     }
 
     @Override
@@ -847,7 +1477,6 @@ public class MainActivity extends Activity {
             histBox.addView(item);
         }
         String tot = (total == Math.floor(total)) ? String.valueOf((long) total) : String.format(Locale.US, "%.2f", total);
-        renderToday();
         histTotal.setText(count + " payments  \u2022  Total \u20B9" + tot);
     }
 

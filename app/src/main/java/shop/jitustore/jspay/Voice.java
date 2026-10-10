@@ -11,19 +11,19 @@ public class Voice {
         String e = money(exp, lang.equals("hi"));
         if (lang.equals("hi")) {
             switch (kind) {
-                case "paid": return a + " का पेमेंट मिला। ऑर्डर पेड हो गया।";
+                case "paid": return "जेएस पे पर " + a + " प्राप्त हुए।";
                 case "wrong": return "सावधान! गलत अमाउंट। " + a + " आए, ऑर्डर " + e + " का था।";
                 case "noorder": return "सावधान! बिना ऑर्डर के " + a + " आए।";
                 case "failed": return "पेमेंट सर्वर तक नहीं पहुंची। इंटरनेट चेक करें।";
-                default: return a + " का पेमेंट आया।";
+                default: return "जेएस पे पर " + a + " प्राप्त हुए।";
             }
         }
         switch (kind) {
-            case "paid": return "Payment received. " + a + ". Order paid.";
+            case "paid": return "Received " + a + " on J S Pay.";
             case "wrong": return "Warning. Wrong amount. " + a + " received, order was " + e + ".";
             case "noorder": return "Warning. " + a + " received without any order.";
             case "failed": return "Payment could not reach the server. Check internet.";
-            default: return "Payment received. " + a + ".";
+            default: return "Received " + a + " on J S Pay.";
         }
     }
 
