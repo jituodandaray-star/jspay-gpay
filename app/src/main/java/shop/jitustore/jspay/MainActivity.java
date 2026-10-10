@@ -405,7 +405,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.7", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.8", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -1464,8 +1464,18 @@ public class MainActivity extends Activity {
     void planTick() {
         if (planBox == null) return;
         if (!Plan.has(this)) {
-            planBox.setVisibility(View.GONE);
             if (lockView != null) lockView.setVisibility(View.GONE);
+            if (Plan.life(this)) {
+                planBox.setVisibility(View.VISIBLE);
+                planBox.setBackground(box(CARD, 16, LINE));
+                planHead.setText("PREMIUM PLAN");
+                planHead.setTextColor(MUTED);
+                planDate.setText("Lifetime / No expiry");
+                planDate.setTextColor(Color.parseColor("#4ADE80"));
+                for (TextView n : planNum) { n.setText("\u221E"); n.setTextColor(Color.parseColor("#4ADE80")); }
+                planNote.setVisibility(View.GONE);
+                planBtn.setVisibility(View.GONE);
+            } else planBox.setVisibility(View.GONE);
             return;
         }
         long left = Plan.leftMs(this);

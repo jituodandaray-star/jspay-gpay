@@ -27,9 +27,11 @@ final class Plan {
                 .putLong("p_boot", bootEpoch()).apply();
     }
 
-    static void clear(Context c) { sp(c).edit().putBoolean("p_has", false).putBoolean("p_dead", false).apply(); }
+    static void clear(Context c) { sp(c).edit().putBoolean("p_has", false).putBoolean("p_dead", false).putBoolean("p_life", false).apply(); }
 
     static void markExpired(Context c) { sp(c).edit().putBoolean("p_dead", true).apply(); }
+
+    static boolean life(Context c) { return sp(c).getBoolean("p_life", false); }
 
     static boolean has(Context c) { return sp(c).getBoolean("p_has", false); }
 
@@ -77,6 +79,7 @@ final class Plan {
                         if (expired) markExpired(c);
                     } else if (b.contains("\"plan\"")) {
                         clear(c);
+                        sp(c).edit().putBoolean("p_life", true).apply();
                     }
                 }
             } catch (Exception ignored) { }
