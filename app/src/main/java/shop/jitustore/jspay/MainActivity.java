@@ -62,6 +62,8 @@ public class MainActivity extends Activity {
     java.util.HashMap<String, ScrollView> pages = new java.util.HashMap<>();
     LinearLayout todayBox, histPageBox, setupBox, aboutBox;
     String histFilter = "all";
+    String gwFilter = "all";
+    TextView hgAll, hgGp, hgBp;
     TextView hfAll, hfPaid, hfWarn;
     TextView vSw, vHi, vEn, vAuto, vAll, vWarn, vSample1, vSample2, vSample3;
     TextToSpeech ttsT;
@@ -198,6 +200,13 @@ public class MainActivity extends Activity {
         b.setLayoutParams(lp);
         b.setOnClickListener(l);
         press(b);
+        String bi = label.equals("Logout") ? "out" : label.equals("Check connection") ? "sync" : label.equals("Open Panel") ? "globe" : label.startsWith("Notification Access") ? "bell" : label.startsWith("Pop-up") ? "bell" : "";
+        if (!bi.isEmpty()) {
+            Ic d = new Ic(bi, filled ? Color.WHITE : TXT, dp(20));
+            d.setBounds(0, 0, dp(20), dp(20));
+            b.setCompoundDrawables(d, null, null, null);
+            b.setCompoundDrawablePadding(dp(8));
+        }
         return b;
     }
 
@@ -207,11 +216,65 @@ public class MainActivity extends Activity {
         return t;
     }
 
+    String iconFor(String label) {
+        switch (label) {
+            case "Login Key": return "key";
+            case "Notification Access": return "bell";
+            case "Background / Battery": return "batt";
+            case "Internet": return "globe";
+            case "Voice engine": return "vol";
+            default: return "";
+        }
+    }
+
+    String menuIcon(String target) {
+        switch (target) {
+            case "voice": return "vol";
+            case "today": return "rup";
+            case "history": return "hist";
+            case "setup": return "shield";
+            default: return "info";
+        }
+    }
+
+    LinearLayout toggleRow(String icon, String title, String sub, String key) {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(0, dp(12), 0, dp(4));
+        android.widget.ImageView iv = new android.widget.ImageView(this);
+        iv.setImageDrawable(new Ic(icon, Color.parseColor("#6EE7B7"), dp(22)));
+        LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(22), dp(22));
+        ilp.rightMargin = dp(12);
+        r.addView(iv, ilp);
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.addView(text(title, 15, TXT, true));
+        t.addView(text(sub, 12, MUTED, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        android.widget.Switch sw = new android.widget.Switch(this);
+        sw.setChecked(sp.getBoolean(key, true));
+        sw.setOnCheckedChangeListener((bv, on) -> {
+            sp.edit().putBoolean(key, on).apply();
+            if (key.equals("daily_on") && on) Daily.schedule(this);
+        });
+        r.addView(sw);
+        return r;
+    }
+
     LinearLayout row(String label, TextView chipView, View.OnClickListener l) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(0, dp(12), 0, dp(4));
+        String ik = iconFor(label);
+        if (!ik.isEmpty()) {
+            android.widget.ImageView iv = new android.widget.ImageView(this);
+            iv.setImageDrawable(new Ic(ik, Color.parseColor("#A5B4FC"), dp(20)));
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(20), dp(20));
+            ilp.rightMargin = dp(10);
+            r.addView(iv, ilp);
+        }
         TextView t = text(label, 15, TXT, false);
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         r.addView(chipView);
@@ -231,6 +294,13 @@ public class MainActivity extends Activity {
         sp = getSharedPreferences("c", MODE_PRIVATE);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        try {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 77);
+            }
+            Notifier.channels(this);
+            Daily.schedule(this);
+        } catch (Exception ignored) { }
 
         sv = new ScrollView(this);
         sv.setBackgroundColor(Color.TRANSPARENT);
@@ -405,7 +475,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.8", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.12", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -612,7 +682,109 @@ public class MainActivity extends Activity {
         vSample3.setBackground(box(Color.parseColor("#22DC2626"), 12, BAD));
         r2.addView(c2);
 
+        LinearLayout c3 = card();
+        c3.addView(text("AWAAZ CHUNO", 11, MUTED, true));
+        TextView vh = text("Jo awaaz dabaoge wahi save hogi aur turant sunayi degi. Ye list tumhare phone ki apni awaazon ki hai.", 12, MUTED, false);
+        vh.setPadding(0, dp(6), 0, dp(4));
+        c3.addView(vh);
+        vListBox = new LinearLayout(this);
+        vListBox.setOrientation(LinearLayout.VERTICAL);
+        c3.addView(vListBox);
+        c3.addView(button("Phone ki awaaz settings kholo", false, v -> {
+            try { startActivity(new Intent("com.android.settings.TTS_SETTINGS")); }
+            catch (Exception e) { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Exception ignored) { } }
+        }));
+        r2.addView(c3);
+
         return s2;
+    }
+
+    LinearLayout vListBox;
+    int voiceTries = 0;
+
+    void renderVoiceList() {
+        if (vListBox == null) return;
+        vListBox.removeAllViews();
+        if (ttsT == null || !ttsTReady) {
+            TextView w = text("Awaaz engine tayyar ho raha hai\u2026", 13, MUTED, false);
+            w.setPadding(0, dp(10), 0, dp(6));
+            vListBox.addView(w);
+            if (voiceTries++ < 8) vListBox.postDelayed(() -> renderVoiceList(), 1200);
+            return;
+        }
+        voiceTries = 0;
+        final String cur = sp.getString("voice_name", "");
+        vListBox.addView(voiceRow("Phone ki default awaaz", "Auto \u00B7 jo phone ne chuni hai", cur.isEmpty(), null));
+        java.util.ArrayList<android.speech.tts.Voice> list = new java.util.ArrayList<>();
+        try {
+            java.util.Set<android.speech.tts.Voice> vs = ttsT.getVoices();
+            if (vs != null) {
+                for (android.speech.tts.Voice v : vs) {
+                    String lg = v.getLocale().getLanguage();
+                    if (lg.equals("hi") || lg.equals("en")) list.add(v);
+                }
+            }
+        } catch (Exception ignored) { }
+        java.util.Collections.sort(list, (a, b) -> {
+            int la = a.getLocale().getLanguage().equals("hi") ? 0 : 1;
+            int lb = b.getLocale().getLanguage().equals("hi") ? 0 : 1;
+            if (la != lb) return la - lb;
+            int na = a.isNetworkConnectionRequired() ? 1 : 0;
+            int nb = b.isNetworkConnectionRequired() ? 1 : 0;
+            if (na != nb) return na - nb;
+            return a.getName().compareTo(b.getName());
+        });
+        int nh = 0, ne = 0;
+        for (android.speech.tts.Voice v : list) {
+            boolean hi = v.getLocale().getLanguage().equals("hi");
+            int num = hi ? ++nh : ++ne;
+            String title = (hi ? "Hindi" : "English") + " \u00B7 Awaaz " + num;
+            String sub = (v.isNetworkConnectionRequired() ? "Internet chahiye" : "Offline (net ke bina bhi chalegi)") + " \u00B7 " + v.getLocale().getDisplayCountry();
+            vListBox.addView(voiceRow(title, sub, v.getName().equals(cur), v));
+        }
+        if (list.isEmpty()) {
+            TextView w = text("Is phone mein Hindi/English awaaz nahi mili. Neeche wala button dabakar awaaz download karo.", 13, Color.parseColor("#FECACA"), false);
+            w.setPadding(0, dp(10), 0, dp(6));
+            vListBox.addView(w);
+        }
+    }
+
+    View voiceRow(String title, String sub, boolean on, final android.speech.tts.Voice v) {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.setGravity(Gravity.CENTER_VERTICAL);
+        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        r.setBackground(on ? box(Color.parseColor("#226366F1"), 12, PRIMARY) : box(Color.TRANSPARENT, 12, LINE));
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
+        rp.topMargin = dp(8);
+        r.setLayoutParams(rp);
+        android.widget.ImageView iv = new android.widget.ImageView(this);
+        iv.setImageDrawable(new Ic("vol", on ? Color.WHITE : Color.parseColor("#A5B4FC"), dp(20)));
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(dp(20), dp(20));
+        ip.rightMargin = dp(12);
+        r.addView(iv, ip);
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.addView(text(title, 15, TXT, true));
+        t.addView(text(sub, 11, MUTED, false));
+        r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        if (on) {
+            android.widget.ImageView ck = new android.widget.ImageView(this);
+            ck.setImageDrawable(new Ic("check", Color.parseColor("#4ADE80"), dp(22)));
+            r.addView(ck, new LinearLayout.LayoutParams(dp(22), dp(22)));
+        }
+        r.setOnClickListener(x -> {
+            if (v == null) {
+                sp.edit().remove("voice_name").apply();
+            } else {
+                sp.edit().putString("voice_name", v.getName()).putString("voice_lang", v.getLocale().getLanguage().equals("hi") ? "hi" : "en").apply();
+            }
+            sTap();
+            refreshVoiceUi();
+            testVoice();
+        });
+        press(r);
+        return r;
     }
 
     void setLang(String l) { sp.edit().putString("voice_lang", l).apply(); sTap(); refreshVoiceUi(); }
@@ -640,6 +812,7 @@ public class MainActivity extends Activity {
         vSample1.setText("\u201C" + Voice.say("paid", lg, "26", "") + "\u201D");
         vSample2.setText("\u201C" + Voice.say("wrong", lg, "2", "500") + "\u201D");
         vSample3.setText("\u201C" + Voice.say("noorder", lg, "5", "") + "\u201D");
+        renderVoiceList();
     }
 
     void testVoice() {
@@ -650,7 +823,7 @@ public class MainActivity extends Activity {
         try {
             ttsT.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
-            String lang = Voice.pick(ttsT, sp.getString("voice_lang", "auto"));
+            String lang = Voice.pick(ttsT, sp.getString("voice_lang", "auto"), sp.getString("voice_name", ""));
             if (lang.equals("en") && !sp.getString("voice_lang", "auto").equals("en")) {
                 Toast.makeText(this, "Hindi voice not found on this phone. Using English.", Toast.LENGTH_LONG).show();
             }
@@ -667,6 +840,108 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
+
+    // ================= BEECH WALA SAFED POPUP =================
+    static MainActivity front;
+    FrameLayout popRoot;
+
+    /** NotifService se: app khula ho to beech mein popup. */
+    static void popup(final String kind, final String amount, final String gw, final String who, final String exp) {
+        final MainActivity a = front;
+        if (a == null) return;
+        try { a.runOnUiThread(() -> a.showPopup(kind, amount, gw, who, exp)); } catch (Exception ignored) { }
+    }
+
+    void hidePopup() {
+        try {
+            if (popRoot != null && popRoot.getParent() != null) ((android.view.ViewGroup) popRoot.getParent()).removeView(popRoot);
+        } catch (Exception ignored) { }
+        popRoot = null;
+    }
+
+    void showPopup(String kind, String amount, String gw, String who, String exp) {
+        try {
+            hidePopup();
+            boolean good = kind.equals("paid") || kind.equals("plain");
+            int main = Color.parseColor(good ? "#16A34A" : "#DC2626");
+            String label = kind.equals("wrong") ? "Galat Amount" : kind.equals("noorder") ? "Bina Order Ka Paisa" : kind.equals("expired") ? "Premium Khatam" : kind.equals("failed") ? "Server Tak Nahi Pahunchi" : "Payment Received";
+            String sub = good ? (who == null ? "" : who) : kind.equals("wrong") ? "Order \u20B9" + exp + " ka tha" : kind.equals("noorder") ? "Koi order nahi tha" : kind.equals("expired") ? "Renew karo" : "Internet check karo";
+            String amt = (amount == null || amount.isEmpty()) ? "" : "\u20B9" + Notifier.money(amount);
+            final FrameLayout ov = new FrameLayout(this);
+            ov.setBackgroundColor(Color.parseColor("#B8050814"));
+            ov.setClickable(true);
+            ov.setOnClickListener(v -> hidePopup());
+            FrameLayout wrap = new FrameLayout(this);
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setGravity(Gravity.CENTER_HORIZONTAL);
+            card.setPadding(dp(18), dp(46), dp(18), dp(20));
+            card.setBackground(box(Color.WHITE, 26, 0));
+            TextView t1 = text(label, 21, Color.parseColor(good ? "#1F2937" : "#B91C1C"), false);
+            t1.setGravity(Gravity.CENTER);
+            card.addView(t1);
+            if (!amt.isEmpty()) {
+                TextView t2 = text(amt, 44, Color.parseColor("#0F172A"), true);
+                t2.setGravity(Gravity.CENTER);
+                t2.setPadding(0, dp(4), 0, 0);
+                card.addView(t2);
+            }
+            if (!sub.isEmpty()) {
+                TextView t3 = text(sub, 15, Color.parseColor("#64748B"), false);
+                t3.setGravity(Gravity.CENTER);
+                t3.setPadding(0, dp(6), 0, 0);
+                card.addView(t3);
+            }
+            TextView bd = text("bp".equals(gw) ? "BharatPe Business" : "Google Pay Business", 12, Color.WHITE, true);
+            GradientDrawable bgd = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                    "bp".equals(gw) ? new int[]{Color.parseColor("#14B8A6"), Color.parseColor("#0284C7")} : new int[]{Color.parseColor("#4285F4"), Color.parseColor("#34A853")});
+            bgd.setCornerRadius(dp(9));
+            bd.setBackground(bgd);
+            bd.setPadding(dp(11), dp(4), dp(11), dp(4));
+            LinearLayout.LayoutParams bdp = new LinearLayout.LayoutParams(-2, -2);
+            bdp.topMargin = dp(12);
+            card.addView(bd, bdp);
+            FrameLayout bar = new FrameLayout(this);
+            bar.setBackground(box(Color.parseColor("#E5E7EB"), 3, 0));
+            View fill = new View(this);
+            fill.setBackground(box(main, 3, 0));
+            bar.addView(fill, new FrameLayout.LayoutParams(-1, -1));
+            LinearLayout.LayoutParams brp = new LinearLayout.LayoutParams(-1, dp(5));
+            brp.topMargin = dp(18);
+            card.addView(bar, brp);
+            TextView sm = text("3 second mein band ho jayega", 11, Color.parseColor("#94A3B8"), false);
+            sm.setGravity(Gravity.CENTER);
+            sm.setPadding(0, dp(6), 0, 0);
+            card.addView(sm);
+            FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(-1, -2);
+            cp.topMargin = dp(34);
+            wrap.addView(card, cp);
+            android.widget.ImageView ci = new android.widget.ImageView(this);
+            ci.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+            ci.setImageDrawable(new Ic(good ? "check" : "warn", Color.WHITE, dp(34)));
+            GradientDrawable cg = new GradientDrawable();
+            cg.setShape(GradientDrawable.OVAL);
+            cg.setColor(main);
+            cg.setStroke(dp(5), Color.WHITE);
+            ci.setBackground(cg);
+            wrap.addView(ci, new FrameLayout.LayoutParams(dp(68), dp(68), Gravity.TOP | Gravity.CENTER_HORIZONTAL));
+            FrameLayout.LayoutParams wp = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER);
+            wp.leftMargin = dp(28);
+            wp.rightMargin = dp(28);
+            ov.addView(wrap, wp);
+            addContentView(ov, new FrameLayout.LayoutParams(-1, -1));
+            popRoot = ov;
+            AlphaAnimation fa = new AlphaAnimation(0f, 1f);
+            fa.setDuration(180);
+            ov.startAnimation(fa);
+            android.view.animation.ScaleAnimation sa = new android.view.animation.ScaleAnimation(1f, 0f, 1f, 1f,
+                    Animation.RELATIVE_TO_SELF, 0f, Animation.RELATIVE_TO_SELF, 0.5f);
+            sa.setDuration(3000);
+            sa.setFillAfter(true);
+            fill.startAnimation(sa);
+            ov.postDelayed(() -> { if (popRoot == ov) hidePopup(); }, 3200);
+        } catch (Exception ignored) { }
+    }
 
     // ================= MENU + PAGES =================
     ScrollView mkPage(String icon, String title, String sub, LinearLayout[] out) {
@@ -712,8 +987,9 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(12);
         it.setLayoutParams(lp);
-        TextView ic = text(icon, 18, Color.WHITE, true);
-        ic.setGravity(Gravity.CENTER);
+        android.widget.ImageView ic = new android.widget.ImageView(this);
+        ic.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        ic.setImageDrawable(new Ic(menuIcon(target), Color.WHITE, dp(24)));
         ic.setBackground(box(Color.parseColor(color), 12, 0));
         it.addView(ic, new LinearLayout.LayoutParams(dp(44), dp(44)));
         LinearLayout t = new LinearLayout(this);
@@ -765,6 +1041,9 @@ public class MainActivity extends Activity {
             fr.addView(t, p);
         }
         o[0].addView(fr);
+        final TextView[] gws = new TextView[3];
+        o[0].addView(gwRow(gws, () -> renderHistoryPage()));
+        hgAll = gws[0]; hgGp = gws[1]; hgBp = gws[2];
         histPageBox = new LinearLayout(this);
         histPageBox.setOrientation(LinearLayout.VERTICAL);
         o[0].addView(histPageBox);
@@ -823,10 +1102,41 @@ public class MainActivity extends Activity {
         return (v == Math.floor(v)) ? String.valueOf((long) v) : String.format(Locale.US, "%.2f", v);
     }
 
+    boolean gwOk(String[] f) {
+        boolean bp = f[3].startsWith("[BP]");
+        if (gwFilter.equals("bp")) return bp;
+        if (gwFilter.equals("gp")) return !bp;
+        return true;
+    }
+
+    /** Sab | GPay | BharatPe wali patti. out[0..2] mein buttons milte hain. */
+    LinearLayout gwRow(TextView[] out, Runnable redraw) {
+        LinearLayout fr = new LinearLayout(this);
+        fr.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(-1, -2);
+        flp.topMargin = dp(14);
+        fr.setLayoutParams(flp);
+        out[0] = seg("Sab Gateway", v -> { gwFilter = "all"; redraw.run(); });
+        out[1] = seg("GPay", v -> { gwFilter = "gp"; redraw.run(); });
+        out[2] = seg("BharatPe", v -> { gwFilter = "bp"; redraw.run(); });
+        for (TextView t : out) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            p.rightMargin = dp(6);
+            fr.addView(t, p);
+        }
+        return fr;
+    }
+
+    void paintGw(TextView[] t) {
+        paintSeg(t[0], gwFilter.equals("all"));
+        paintSeg(t[1], gwFilter.equals("gp"));
+        paintSeg(t[2], gwFilter.equals("bp"));
+    }
+
     String whoOf(String[] f) {
         java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)(?:\\s+and\\s+settled|\\s+settled|\\s+at\\s)").matcher(f[3] + " ");
         String w = nm.find() ? nm.group(1).trim() : "";
-        return (!w.isEmpty() && f[3].startsWith("[BP]")) ? "BharatPe \u00B7 from " + w : (w.isEmpty() ? "" : "from " + w);
+        return f[3].startsWith("[BP]") ? "BharatPe \u00B7 " + (w.isEmpty() ? "payment" : "from " + w) : (w.isEmpty() ? "GPay" : "GPay \u00B7 from " + w);
     }
 
     View payItem(String[] f) {
@@ -904,24 +1214,35 @@ public class MainActivity extends Activity {
         long start = c.getTimeInMillis();
         java.util.ArrayList<String[]> today = new java.util.ArrayList<>();
         int paid = 0, warn = 0;
-        double total = 0;
+        double total = 0, gpTot = 0, bpTot = 0;
         long lastTs = 0;
         for (String[] f : loadHist()) {
             long ts = 0;
             try { ts = Long.parseLong(f[0]); } catch (Exception ignored) { }
             if (ts < start) continue;
+            String k0 = kindOf(f);
+            if (k0.equals("paid") || k0.equals("plain")) { if (f[3].startsWith("[BP]")) bpTot += amtOf(f); else gpTot += amtOf(f); }
+            if (!gwOk(f)) continue;
             today.add(f);
             String k = kindOf(f);
             if (k.equals("paid") || k.equals("plain")) { paid++; total += amtOf(f); }
             else if (k.equals("wrong") || k.equals("noorder") || k.equals("expired")) warn++;
             if (ts > lastTs) lastTs = ts;
         }
+        final TextView[] tg = new TextView[3];
+        todayBox.addView(gwRow(tg, () -> renderTodayPage()));
+        paintGw(tg);
         LinearLayout big = card();
-        big.addView(text("AAJ TOTAL MILA", 11, MUTED, true));
+        big.addView(text(gwFilter.equals("bp") ? "AAJ BHARATPE ME MILA" : gwFilter.equals("gp") ? "AAJ GPAY ME MILA" : "AAJ TOTAL MILA", 11, MUTED, true));
         TextView t = text("₹" + money(total), 38, Color.parseColor("#34D399"), true);
         t.setPadding(0, dp(6), 0, dp(2));
         big.addView(t);
         big.addView(text(lastTs > 0 ? "Aakhri payment: " + new SimpleDateFormat("hh:mm a", Locale.US).format(new Date(lastTs)) : "Aaj abhi koi payment nahi aayi", 13, MUTED, false));
+        if (gwFilter.equals("all")) {
+            TextView sp2 = text("GPay \u20B9" + money(gpTot) + "   \u00B7   BharatPe \u20B9" + money(bpTot), 14, TXT, true);
+            sp2.setPadding(0, dp(8), 0, 0);
+            big.addView(sp2);
+        }
         todayBox.addView(big);
         LinearLayout st = new LinearLayout(this);
         st.setOrientation(LinearLayout.HORIZONTAL);
@@ -955,6 +1276,7 @@ public class MainActivity extends Activity {
         paintSeg(hfAll, histFilter.equals("all"));
         paintSeg(hfPaid, histFilter.equals("paid"));
         paintSeg(hfWarn, histFilter.equals("warn"));
+        if (hgAll != null) paintGw(new TextView[]{hgAll, hgGp, hgBp});
         histPageBox.removeAllViews();
         int n = 0;
         for (String[] f : loadHist()) {
@@ -963,6 +1285,7 @@ public class MainActivity extends Activity {
             boolean isWarn = k.equals("wrong") || k.equals("noorder") || k.equals("failed") || k.equals("expired");
             if (histFilter.equals("paid") && !isPaid) continue;
             if (histFilter.equals("warn") && !isWarn) continue;
+            if (!gwOk(f)) continue;
             if (n++ >= 50) break;
             histPageBox.addView(payItem(f));
         }
@@ -1001,6 +1324,20 @@ public class MainActivity extends Activity {
         c.addView(row("Internet", c4, v -> startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS))));
         c.addView(row("Voice engine", c5, null));
         setupBox.addView(c);
+        LinearLayout tc = card();
+        tc.addView(text("AUTO AUR ALERT", 11, MUTED, true));
+        tc.addView(toggleRow("power", "Phone on hote hi chalu", "Restart ke baad app kholna nahi padega", "autostart"));
+        tc.addView(toggleRow("bell", "Pop-up alert", "Payment aate hi phone ke upar pop-up", "pop_on"));
+        tc.addView(toggleRow("moon", "Raat 10 baje summary", "Aaj ka total notification mein", "daily_on"));
+        setupBox.addView(tc);
+        setupBox.addView(button("Pop-up settings kholo", false, v -> {
+            try {
+                Intent ni = Build.VERSION.SDK_INT >= 26 ? new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
+                        : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
+                startActivity(ni);
+            } catch (Exception ignored) { }
+        }));
+        setupBox.addView(button("Popup dekho (test)", false, v -> showPopup("paid", "2", "bp", "Saumya Ranjan", "")));
         LinearLayout lc = card();
         lc.addView(text("AAKHRI SIGNAL", 11, MUTED, true));
         long last = sp.getLong("last", 0);
@@ -1041,7 +1378,7 @@ public class MainActivity extends Activity {
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.7"));
+        c.addView(kv("Version", "v1.12"));
         c.addView(kv("Login Key", masked));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
@@ -1533,6 +1870,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        front = this;
         if (bg != null) bg.go();
         planTick();
         startPlanTicker();
@@ -1544,6 +1882,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        hidePopup();
+        if (front == this) front = null;
         planTicking = false;
         if (bg != null) bg.stop();
     }
