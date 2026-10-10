@@ -5,7 +5,15 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RadialGradient;
+import android.graphics.Shader;
+import android.graphics.drawable.ColorDrawable;
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -21,6 +29,7 @@ import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -51,6 +60,92 @@ public class MainActivity extends Activity {
     TextView histTotal;
     boolean wasVerified = false;
     TextView pill, loginMsg, loginBtn, chipKey, chipAccess, chipBatt, chipNet, rowLast;
+
+    // ---------- moving soft background ----------
+    static class BgView extends View {
+        final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final float[] fx = {0.15f, 0.80f, 0.45f, 0.90f, 0.10f, 0.60f};
+        final float[] fy = {0.20f, 0.30f, 0.60f, 0.85f, 0.80f, 0.10f};
+        final float[] sp = {0.00021f, 0.00017f, 0.00025f, 0.00014f, 0.00019f, 0.00023f};
+        final int[] col = {0xFF6366F1, 0xFF8B5CF6, 0xFF22D3EE, 0xFF6366F1, 0xFF8B5CF6, 0xFF22D3EE};
+        boolean running = false;
+
+        BgView(Context c) { super(c); setClickable(false); setFocusable(false); }
+
+        void go() { if (!running) { running = true; postInvalidateOnAnimation(); } }
+        void stop() { running = false; }
+
+        @Override protected void onDraw(Canvas cv) {
+            int w = getWidth(), h = getHeight();
+            if (w == 0 || h == 0) return;
+            long t = android.os.SystemClock.uptimeMillis();
+            for (int i = 0; i < fx.length; i++) {
+                double a = t * sp[i] + i * 1.7;
+                float cx = (float) (fx[i] * w + Math.sin(a) * w * 0.12);
+                float cy = (float) (fy[i] * h + Math.cos(a * 0.8) * h * 0.06);
+                float r = w * (0.38f + 0.05f * (float) Math.sin(a * 1.3));
+                int c0 = (col[i] & 0x00FFFFFF) | 0x2E000000;
+                p.setShader(new RadialGradient(cx, cy, r, c0, col[i] & 0x00FFFFFF, Shader.TileMode.CLAMP));
+                cv.drawCircle(cx, cy, r, p);
+            }
+            if (running) postInvalidateOnAnimation();
+        }
+
+        @Override protected void onDetachedFromWindow() { running = false; super.onDetachedFromWindow(); }
+    }
+
+    // ---------- small synthesized sounds (no files needed) ----------
+    void beep(final double[] freqs, final int noteMs, final double vol) {
+        new Thread(() -> {
+            try {
+                int sr = 22050;
+                int n = sr * noteMs / 1000;
+                short[] buf = new short[n * freqs.length];
+                for (int k = 0; k < freqs.length; k++) {
+                    for (int i = 0; i < n; i++) {
+                        double t = i / (double) sr;
+                        double env = Math.min(1.0, i / (sr * 0.004)) * Math.exp(-4.5 * i / (double) n);
+                        buf[k * n + i] = (short) (Math.sin(2 * Math.PI * freqs[k] * t) * env * vol * 32767);
+                    }
+                }
+                AudioTrack at = new AudioTrack.Builder()
+                        .setAudioAttributes(new AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                        .setAudioFormat(new AudioFormat.Builder()
+                                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                .setSampleRate(sr)
+                                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                        .setBufferSizeInBytes(buf.length * 2)
+                        .setTransferMode(AudioTrack.MODE_STATIC).build();
+                at.write(buf, 0, buf.length);
+                at.play();
+                Thread.sleep((long) noteMs * freqs.length + 200);
+                at.release();
+            } catch (Exception ignored) { }
+        }).start();
+    }
+
+    void sTap() { beep(new double[]{1480}, 40, 0.22); }
+    void sOk() { beep(new double[]{880, 1175, 1568}, 110, 0.30); }
+    void sErr() { beep(new double[]{330, 262}, 150, 0.30); }
+
+    // tap animation + sound for any clickable view
+    void press(View v) {
+        v.setOnTouchListener((x, ev) -> {
+            int a = ev.getAction();
+            if (a == MotionEvent.ACTION_DOWN) {
+                x.animate().scaleX(0.95f).scaleY(0.95f).alpha(0.85f).setDuration(90).start();
+                sTap();
+            } else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
+                x.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(220)
+                        .setInterpolator(new android.view.animation.OvershootInterpolator(2.5f)).start();
+            }
+            return false;
+        });
+    }
+
+    BgView bg;
 
     int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
@@ -91,12 +186,7 @@ public class MainActivity extends Activity {
         lp.topMargin = dp(10);
         b.setLayoutParams(lp);
         b.setOnClickListener(l);
-        b.setOnTouchListener((v, ev) -> {
-            int a = ev.getAction();
-            if (a == MotionEvent.ACTION_DOWN) v.animate().scaleX(0.96f).scaleY(0.96f).setDuration(90).start();
-            else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) v.animate().scaleX(1f).scaleY(1f).setDuration(140).start();
-            return false;
-        });
+        press(b);
         return b;
     }
 
@@ -115,6 +205,7 @@ public class MainActivity extends Activity {
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         r.addView(chipView);
         r.setOnClickListener(l);
+        if (l != null) press(r);
         return r;
     }
 
@@ -122,6 +213,7 @@ public class MainActivity extends Activity {
         t.setText(ok ? onText : offText);
         t.setBackground(box(ok ? GOOD : BAD, 20, 0));
     }
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -130,7 +222,7 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(BG);
 
         ScrollView sv = new ScrollView(this);
-        sv.setBackgroundColor(BG);
+        sv.setBackgroundColor(Color.TRANSPARENT);
         sv.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -245,29 +337,34 @@ public class MainActivity extends Activity {
         dashBox.addView(st);
 
         LinearLayout hc = card();
-        hc.addView(text("PAYMENT HISTORY", 11, MUTED, true));
+        hc.addView(text("RECENT PAYMENTS", 11, MUTED, true));
         histTotal = text("", 13, MUTED, false);
         histTotal.setPadding(0, dp(6), 0, dp(4));
         hc.addView(histTotal);
-        histScroll = new ScrollView(this);
-        histScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         histBox = new LinearLayout(this);
         histBox.setOrientation(LinearLayout.VERTICAL);
-        histScroll.addView(histBox);
-        histScroll.setOnTouchListener((v, ev) -> {
-            v.getParent().requestDisallowInterceptTouchEvent(true);
-            return false;
-        });
-        hc.addView(histScroll, new LinearLayout.LayoutParams(-1, dp(380)));
+        hc.addView(histBox);
         dashBox.addView(hc);
 
-        LinearLayout ac = card();
-        ac.addView(button("Connection test", false, v -> verify(sp.getString("secret", ""), false)));
-        ac.addView(button("Logout", false, v -> {
+        LinearLayout ac = new LinearLayout(this);
+        ac.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(-1, -2);
+        alp.topMargin = dp(14);
+        ac.setLayoutParams(alp);
+        TextView bLogout = button("Logout", false, v -> {
             sp.edit().remove("secret").remove("verified").apply();
             Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
             refresh();
-        }));
+        });
+        TextView bTest = button("Check connection", true, v -> verify(sp.getString("secret", ""), false));
+        LinearLayout.LayoutParams l1 = new LinearLayout.LayoutParams(0, -2, 1f);
+        l1.rightMargin = dp(8);
+        LinearLayout.LayoutParams l2 = new LinearLayout.LayoutParams(0, -2, 1f);
+        l2.leftMargin = dp(8);
+        bLogout.setLayoutParams(l1);
+        bTest.setLayoutParams(l2);
+        ac.addView(bLogout);
+        ac.addView(bTest);
         dashBox.addView(ac);
         root.addView(dashBox);
 
@@ -277,12 +374,18 @@ public class MainActivity extends Activity {
         panel.setPadding(0, dp(22), 0, dp(6));
         panel.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW,
                 Uri.parse("https://jitustore.shop/pay/auth/gpay.php"))));
+        press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.3", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.4", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
-        setContentView(sv);
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(BG);
+        bg = new BgView(this);
+        frame.addView(bg, new FrameLayout.LayoutParams(-1, -1));
+        frame.addView(sv, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(frame);
         for (int i = 0; i < root.getChildCount(); i++) {
             View ch = root.getChildAt(i);
             ch.setAlpha(0f);
@@ -294,8 +397,16 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (bg != null) bg.go();
         refresh();
-                       }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (bg != null) bg.stop();
+    }
+
     boolean notifOn() {
         String en = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
         return !TextUtils.isEmpty(en) && en.contains(getPackageName());
@@ -355,12 +466,15 @@ public class MainActivity extends Activity {
         boolean valid = (rc == 400 || rc == 200);
         if (valid) {
             sp.edit().putString("secret", k).putBoolean("verified", true).apply();
+            sOk();
             if (!fromLogin) Toast.makeText(this, "Connection OK ✓", Toast.LENGTH_SHORT).show();
         } else if (rc == 401) {
+            sErr();
             sp.edit().remove("secret").remove("verified").apply();
             if (fromLogin) loginMsg.setText("Invalid Login Key. Copy it again from the panel.");
             else Toast.makeText(this, "Login Key is invalid, please log in again", Toast.LENGTH_LONG).show();
         } else if (rc == -1) {
+            sErr();
             if (fromLogin) loginMsg.setText("Check your internet and try again.");
             else Toast.makeText(this, "No internet", Toast.LENGTH_SHORT).show();
         } else {
@@ -382,6 +496,7 @@ public class MainActivity extends Activity {
         }
         String[] lines = h.split("\n");
         int count = 0;
+        int shown = 0;
         double total = 0;
         for (int i = 0; i < lines.length; i++) {
             String[] f = lines[i].split("\\|", 4);
@@ -394,6 +509,8 @@ public class MainActivity extends Activity {
             if (ok) {
                 try { total += Double.parseDouble(f[2].replace(",", "")); } catch (Exception ignored) { }
             }
+            if (shown >= 3) continue;
+            shown++;
             LinearLayout r = new LinearLayout(this);
             r.setOrientation(LinearLayout.HORIZONTAL);
             r.setGravity(Gravity.CENTER_VERTICAL);
@@ -414,10 +531,8 @@ public class MainActivity extends Activity {
             TextView c = chip();
             setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
             r.addView(c);
-            if (i < 12) {
-                r.setAlpha(0f);
-                r.animate().alpha(1f).setDuration(350).setStartDelay(60L * i).start();
-            }
+            r.setAlpha(0f);
+            r.animate().alpha(1f).setDuration(350).setStartDelay(90L * shown).start();
             histBox.addView(r);
         }
         String tot = (total == Math.floor(total)) ? String.valueOf((long) total) : String.format(Locale.US, "%.2f", total);
@@ -465,4 +580,4 @@ public class MainActivity extends Activity {
             rowLast.setText("No payment signal yet");
         }
     }
-                }
+}
