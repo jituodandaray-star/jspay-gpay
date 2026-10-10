@@ -824,8 +824,9 @@ public class MainActivity extends Activity {
     }
 
     String whoOf(String[] f) {
-        java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)\\s+at\\s").matcher(f[3] + " ");
-        return nm.find() ? nm.group(1).trim() : "";
+        java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)(?:\\s+and\\s+settled|\\s+settled|\\s+at\\s)").matcher(f[3] + " ");
+        String w = nm.find() ? nm.group(1).trim() : "";
+        return (!w.isEmpty() && f[3].startsWith("[BP]")) ? "BharatPe \u00B7 from " + w : (w.isEmpty() ? "" : "from " + w);
     }
 
     View payItem(String[] f) {
@@ -842,7 +843,7 @@ public class MainActivity extends Activity {
         String a = f[2].isEmpty() ? "Payment" : "₹" + f[2];
         left.addView(text(a, 17, bad ? Color.parseColor("#F87171") : Color.parseColor("#4ADE80"), true));
         String w = whoOf(f);
-        if (!w.isEmpty()) left.addView(text("from " + w, 14, TXT, false));
+        if (!w.isEmpty()) left.addView(text(w, 14, TXT, false));
         left.addView(text(new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(ts)), 12, MUTED, false));
         r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
         TextView c = chip();
@@ -1677,9 +1678,9 @@ public class MainActivity extends Activity {
             left.setOrientation(LinearLayout.VERTICAL);
             String amt = f[2].isEmpty() ? "Payment" : "\u20B9" + f[2];
             left.addView(text(amt, 17, bad ? Color.parseColor("#F87171") : (ok ? Color.parseColor("#4ADE80") : TXT), true));
-            java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)\\s+at\\s").matcher(f[3] + " ");
-            if (nm.find()) {
-                TextView who = text("from " + nm.group(1).trim(), 14, TXT, false);
+            String whoS = whoOf(f);
+            if (!whoS.isEmpty()) {
+                TextView who = text(whoS, 14, TXT, false);
                 who.setPadding(0, dp(2), 0, 0);
                 left.addView(who);
             }

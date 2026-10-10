@@ -85,7 +85,7 @@ public class NotifService extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification sbn) {
         try {
             String pkg = sbn.getPackageName();
-            if (!pkg.startsWith("com.google.android.apps.nbu.paisa")) return;
+            if (!pkg.startsWith("com.google.android.apps.nbu.paisa") && !pkg.toLowerCase().contains("bharatpe")) return;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
             final String secret = sp.getString("secret", "");
             if (secret.length() < 5) return;
@@ -145,11 +145,14 @@ public class NotifService extends NotificationListenerService {
     private synchronized void addHistory(String title, String text, int code, long postTime, String res, String exp) {
         try {
             String all = title + " " + text;
-            if (!all.contains("₹")) return;
-            Matcher m = Pattern.compile("₹\\s?([0-9,]+(\\.[0-9]+)?)").matcher(all);
+            if (!all.contains("₹") && !Pattern.compile("(?i)\\bRs\\.?\\s?[0-9]").matcher(all).find()) return;
+            Matcher m = Pattern.compile("(?:₹|Rs\\.?|INR)\\s?([0-9,]+(\\.[0-9]+)?)").matcher(all);
             String amount = m.find() ? m.group(1) : "";
-            String sum = (title.isEmpty() ? text : title).replace("\n", " ").replace("|", " ");
-            if (sum.length() > 70) sum = sum.substring(0, 70);
+            boolean isBp = Pattern.compile("(?is)received\\s+(?:rs|₹|inr).*from").matcher(all).find() || all.toLowerCase().contains("settled");
+            String basis = title.toLowerCase().contains(" from ") ? title : (text.toLowerCase().contains(" from ") ? text : (title.isEmpty() ? text : title));
+            String sum = basis.replace("\n", " ").replace("|", " ");
+            if (sum.length() > 110) sum = sum.substring(0, 110);
+            if (isBp) sum = "[BP] " + sum;
             String key = title + "#" + text;
             long ts = postTime > 0 ? postTime : System.currentTimeMillis();
             SharedPreferences sp0 = getSharedPreferences("c", MODE_PRIVATE);
