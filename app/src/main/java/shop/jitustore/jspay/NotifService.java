@@ -8,6 +8,7 @@ import android.net.NetworkCapabilities;
 import android.content.SharedPreferences;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -50,6 +51,8 @@ public class NotifService extends NotificationListenerService {
 
     private void send(String secret, String title, String text, long postTime) {
         int code = -1;
+        String res = "";
+        String exp = "";
         for (int i = 0; i < 4; i++) {
             try {
                 String body = "secret=" + URLEncoder.encode(secret, "UTF-8")
@@ -65,16 +68,29 @@ public class NotifService extends NotificationListenerService {
                 o.write(body.getBytes("UTF-8"));
                 o.close();
                 code = c.getResponseCode();
+                if (code == 200) {
+                    try {
+                        InputStream in = c.getInputStream();
+                        java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                        byte[] buf = new byte[512]; int nr;
+                        while ((nr = in.read(buf)) > 0 && bo.size() < 4096) bo.write(buf, 0, nr);
+                        String body2 = bo.toString("UTF-8");
+                        Matcher rm = Pattern.compile("\"result\"\\s*:\\s*\"([a-z_]+)\"").matcher(body2);
+                        if (rm.find()) res = rm.group(1);
+                        Matcher em = Pattern.compile("\"expected\"\\s*:\\s*\"?([0-9.]+)\"?").matcher(body2);
+                        if (em.find()) exp = em.group(1);
+                    } catch (Exception ignored) { }
+                }
                 getSharedPreferences("c", MODE_PRIVATE).edit()
                         .putLong("last", System.currentTimeMillis()).putInt("code", code).apply();
                 if (code == 200 || code == 401) break;
             } catch (Exception ignored) { }
             try { Thread.sleep(5000L * (i + 1)); } catch (InterruptedException e) { break; }
         }
-        addHistory(title, text, code, postTime);
+        addHistory(title, text, code, postTime, res, exp);
     }
 
-    private synchronized void addHistory(String title, String text, int code, long postTime) {
+    private synchronized void addHistory(String title, String text, int code, long postTime, String res, String exp) {
         try {
             String all = title + " " + text;
             if (!all.contains("₹")) return;
@@ -89,7 +105,7 @@ public class NotifService extends NotificationListenerService {
             long lt = sp0.getLong("lastkeyt", 0);
             if (key.equals(lk) && Math.abs(ts - lt) < 120000L) return; // same notification dobara: list mein mat dikhao
             sp0.edit().putString("lastkey", key).putLong("lastkeyt", ts).apply();
-            String line = ts + "|" + code + "|" + amount + "|" + sum;
+            String line = ts + "|" + code + "|" + amount + "|" + sum + "|" + res + "|" + exp;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
             String old = sp.getString("hist", "");
             String[] parts = old.isEmpty() ? new String[0] : old.split("\n");

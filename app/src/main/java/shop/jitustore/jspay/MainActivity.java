@@ -376,7 +376,7 @@ public class MainActivity extends Activity {
                 Uri.parse("https://jitustore.shop/pay/auth/gpay.php"))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.5", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.6", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -499,14 +499,20 @@ public class MainActivity extends Activity {
         int shown = 0;
         double total = 0;
         for (int i = 0; i < lines.length; i++) {
-            String[] f = lines[i].split("\\|", 4);
+            String[] f = lines[i].split("\\|", 6);
             if (f.length < 4) continue;
             long ts = 0;
             int code = -1;
             try { ts = Long.parseLong(f[0]); code = Integer.parseInt(f[1]); } catch (Exception ignored) { }
             boolean ok = (code == 200);
+            String res = f.length > 4 ? f[4] : "";
+            String exp = f.length > 5 ? f[5] : "";
+            boolean paid = ok && res.equals("paid");
+            boolean wrong = ok && res.equals("wrong");
+            boolean noord = ok && res.equals("no_order");
+            boolean bad = wrong || noord;
             count++;
-            if (ok) {
+            if (paid || (ok && !bad)) {
                 try { total += Double.parseDouble(f[2].replace(",", "")); } catch (Exception ignored) { }
             }
             if (shown >= 3) continue;
@@ -518,7 +524,7 @@ public class MainActivity extends Activity {
             LinearLayout left = new LinearLayout(this);
             left.setOrientation(LinearLayout.VERTICAL);
             String amt = f[2].isEmpty() ? "Payment" : "\u20B9" + f[2];
-            left.addView(text(amt, 17, ok ? Color.parseColor("#4ADE80") : TXT, true));
+            left.addView(text(amt, 17, bad ? Color.parseColor("#F87171") : (ok ? Color.parseColor("#4ADE80") : TXT), true));
             java.util.regex.Matcher nm = java.util.regex.Pattern.compile("(?i)from\\s+(.+?)\\s+at\\s").matcher(f[3] + " ");
             if (nm.find()) {
                 TextView who = text("from " + nm.group(1).trim(), 14, TXT, false);
@@ -529,11 +535,32 @@ public class MainActivity extends Activity {
             left.addView(text(when, 12, MUTED, false));
             r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
             TextView c = chip();
-            setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
+            if (paid) { c.setText("\u2713 Order PAID"); c.setBackground(box(GOOD, 20, 0)); }
+            else if (wrong) { c.setText("\u2715 Galat amount"); c.setBackground(box(BAD, 20, 0)); }
+            else if (noord) { c.setText("\u2715 Bina order"); c.setBackground(box(BAD, 20, 0)); }
+            else setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
             r.addView(c);
-            r.setAlpha(0f);
-            r.animate().alpha(1f).setDuration(350).setStartDelay(90L * shown).start();
-            histBox.addView(r);
+            View item = r;
+            if (paid || bad) {
+                LinearLayout card = new LinearLayout(this);
+                card.setOrientation(LinearLayout.VERTICAL);
+                card.setPadding(dp(12), dp(2), dp(12), dp(10));
+                int tint = bad ? Color.parseColor("#26DC2626") : Color.parseColor("#2616A34A");
+                card.setBackground(box(tint, 14, bad ? BAD : GOOD));
+                r.setPadding(0, dp(8), 0, dp(2));
+                card.addView(r);
+                String note = paid ? "Order mil gaya. Paisa credit ho gaya."
+                        : wrong ? "Order \u20B9" + exp + " ka tha, \u20B9" + f[2] + " aaya. Credit nahi hoga."
+                        : "Koi order nahi tha. Credit nahi hoga.";
+                card.addView(text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false));
+                LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
+                clp.setMargins(0, dp(8), 0, 0);
+                card.setLayoutParams(clp);
+                item = card;
+            }
+            item.setAlpha(0f);
+            item.animate().alpha(1f).setDuration(350).setStartDelay(90L * shown).start();
+            histBox.addView(item);
         }
         String tot = (total == Math.floor(total)) ? String.valueOf((long) total) : String.format(Locale.US, "%.2f", total);
         histTotal.setText(count + " payments  \u2022  Total \u20B9" + tot);
