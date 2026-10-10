@@ -20,6 +20,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.speech.tts.TextToSpeech;
 import android.provider.Settings;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -55,6 +56,15 @@ public class MainActivity extends Activity {
     SharedPreferences sp;
     LinearLayout loginBox, dashBox;
     EditText key;
+    ScrollView sv;
+    ScrollView sv2;
+    FrameLayout frameRef;
+    int page = 0;
+    float dX, dY;
+    View dot0, dot1;
+    TextView vSw, vHi, vEn, vAuto, vAll, vWarn, vSample1, vSample2, vSample3, vToday1, vToday2, vToday3;
+    TextToSpeech ttsT;
+    boolean ttsTReady = false;
     LinearLayout histBox;
     ScrollView histScroll;
     TextView histTotal;
@@ -221,12 +231,12 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
 
-        ScrollView sv = new ScrollView(this);
+        sv = new ScrollView(this);
         sv.setBackgroundColor(Color.TRANSPARENT);
         sv.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(36), dp(20), dp(28));
+        root.setPadding(dp(20), dp(36), dp(20), dp(64));
         sv.addView(root);
 
         // ---- header ----
@@ -376,7 +386,7 @@ public class MainActivity extends Activity {
                 Uri.parse("https://jitustore.shop/pay/auth/gpay.php"))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.6", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.7", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -385,13 +395,277 @@ public class MainActivity extends Activity {
         bg = new BgView(this);
         frame.addView(bg, new FrameLayout.LayoutParams(-1, -1));
         frame.addView(sv, new FrameLayout.LayoutParams(-1, -1));
+        frameRef = frame;
+        sv2 = buildPage2();
+        frame.addView(sv2, new FrameLayout.LayoutParams(-1, -1));
+        sv2.setTranslationX(getResources().getDisplayMetrics().widthPixels);
+        LinearLayout dots = new LinearLayout(this);
+        dots.setOrientation(LinearLayout.HORIZONTAL);
+        dots.setGravity(Gravity.CENTER);
+        dot0 = new View(this);
+        dot1 = new View(this);
+        LinearLayout.LayoutParams dp0 = new LinearLayout.LayoutParams(dp(22), dp(8));
+        dp0.setMargins(dp(8), dp(12), dp(8), dp(12));
+        LinearLayout.LayoutParams dp1 = new LinearLayout.LayoutParams(dp(8), dp(8));
+        dp1.setMargins(dp(8), dp(12), dp(8), dp(12));
+        dots.addView(dot0, dp0);
+        dots.addView(dot1, dp1);
+        dot0.setOnClickListener(v -> showPage(0));
+        dot1.setOnClickListener(v -> showPage(1));
+        FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        dlp.bottomMargin = dp(6);
+        frame.addView(dots, dlp);
+        paintDots();
         setContentView(frame);
+        try {
+            ttsT = new TextToSpeech(getApplicationContext(), st2 -> { ttsTReady = (st2 == TextToSpeech.SUCCESS); });
+        } catch (Exception ignored) { }
         for (int i = 0; i < root.getChildCount(); i++) {
             View ch = root.getChildAt(i);
             ch.setAlpha(0f);
             ch.setTranslationY(dp(26));
             ch.animate().alpha(1f).translationY(0f).setDuration(480).setStartDelay(90L * i).start();
         }
+    }
+
+
+    void paintDots() {
+        dot0.setBackground(box(page == 0 ? Color.parseColor("#818CF8") : Color.parseColor("#3B4570"), 6, 0));
+        dot1.setBackground(box(page == 1 ? Color.parseColor("#818CF8") : Color.parseColor("#3B4570"), 6, 0));
+        LinearLayout.LayoutParams a = (LinearLayout.LayoutParams) dot0.getLayoutParams();
+        LinearLayout.LayoutParams b = (LinearLayout.LayoutParams) dot1.getLayoutParams();
+        a.width = dp(page == 0 ? 22 : 8);
+        b.width = dp(page == 1 ? 22 : 8);
+        dot0.setLayoutParams(a);
+        dot1.setLayoutParams(b);
+    }
+
+    void showPage(int p) {
+        if (p == page || sv == null) return;
+        page = p;
+        int w = getResources().getDisplayMetrics().widthPixels;
+        sv.animate().translationX(p == 0 ? 0 : -w).setDuration(260).start();
+        sv2.animate().translationX(p == 0 ? w : 0).setDuration(260).start();
+        paintDots();
+        sTap();
+        if (p == 1) refreshVoiceUi();
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        try {
+            if (ev.getAction() == MotionEvent.ACTION_DOWN) { dX = ev.getX(); dY = ev.getY(); }
+            else if (ev.getAction() == MotionEvent.ACTION_UP) {
+                float dx = ev.getX() - dX, dy = ev.getY() - dY;
+                if (Math.abs(dx) > dp(90) && Math.abs(dx) > Math.abs(dy) * 1.6f) {
+                    if (dx < 0) showPage(1); else showPage(0);
+                }
+            }
+        } catch (Exception ignored) { }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    TextView seg(String label, View.OnClickListener l) {
+        TextView t = text(label, 13, MUTED, true);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(dp(4), dp(11), dp(4), dp(11));
+        t.setOnClickListener(l);
+        press(t);
+        return t;
+    }
+
+    void paintSeg(TextView t, boolean on) {
+        t.setTextColor(on ? Color.WHITE : MUTED);
+        t.setBackground(on ? box(PRIMARY, 12, 0) : box(Color.TRANSPARENT, 12, LINE));
+    }
+
+    ScrollView buildPage2() {
+        ScrollView s2 = new ScrollView(this);
+        s2.setFillViewport(true);
+        LinearLayout r2 = new LinearLayout(this);
+        r2.setOrientation(LinearLayout.VERTICAL);
+        r2.setPadding(dp(20), dp(36), dp(20), dp(64));
+        s2.addView(r2);
+
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        TextView logo = text("JS", 20, Color.WHITE, true);
+        logo.setGravity(Gravity.CENTER);
+        GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+        lg.setCornerRadius(dp(16));
+        logo.setBackground(lg);
+        logo.setLayoutParams(new LinearLayout.LayoutParams(dp(54), dp(54)));
+        head.addView(logo);
+        LinearLayout names = new LinearLayout(this);
+        names.setOrientation(LinearLayout.VERTICAL);
+        names.setPadding(dp(14), 0, 0, 0);
+        names.addView(text("Voice & Alerts", 22, TXT, true));
+        names.addView(text("Advanced settings", 13, MUTED, false));
+        head.addView(names, new LinearLayout.LayoutParams(0, -2, 1f));
+        r2.addView(head);
+
+        LinearLayout c1 = card();
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setOrientation(LinearLayout.HORIZONTAL);
+        row1.setGravity(Gravity.CENTER_VERTICAL);
+        row1.addView(text("Voice alert", 15, TXT, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        vSw = chip();
+        vSw.setOnClickListener(v -> { sp.edit().putBoolean("voice_on", !sp.getBoolean("voice_on", true)).apply(); sTap(); refreshVoiceUi(); });
+        press(vSw);
+        row1.addView(vSw);
+        c1.addView(row1);
+
+        TextView l1 = text("LANGUAGE", 11, MUTED, true);
+        l1.setPadding(0, dp(14), 0, dp(6));
+        c1.addView(l1);
+        LinearLayout s1 = new LinearLayout(this);
+        s1.setOrientation(LinearLayout.HORIZONTAL);
+        vHi = seg("\u0939\u093F\u0902\u0926\u0940", v -> setLang("hi"));
+        vEn = seg("English", v -> setLang("en"));
+        vAuto = seg("Auto", v -> setLang("auto"));
+        for (TextView t : new TextView[]{vHi, vEn, vAuto}) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            p.rightMargin = dp(6);
+            s1.addView(t, p);
+        }
+        c1.addView(s1);
+
+        TextView l2 = text("KAB BOLE", 11, MUTED, true);
+        l2.setPadding(0, dp(14), 0, dp(6));
+        c1.addView(l2);
+        LinearLayout s2r = new LinearLayout(this);
+        s2r.setOrientation(LinearLayout.HORIZONTAL);
+        vAll = seg("Har payment", v -> setMode("all"));
+        vWarn = seg("Sirf warning", v -> setMode("warn"));
+        for (TextView t : new TextView[]{vAll, vWarn}) {
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
+            p.rightMargin = dp(6);
+            s2r.addView(t, p);
+        }
+        c1.addView(s2r);
+
+        TextView test = button("\u25B6  Test voice", true, v -> testVoice());
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
+        tp.topMargin = dp(14);
+        test.setLayoutParams(tp);
+        c1.addView(test);
+        r2.addView(c1);
+
+        LinearLayout c2 = card();
+        c2.addView(text("AISA BOLEGA", 11, MUTED, true));
+        vSample1 = text("", 13, Color.parseColor("#C7D2FE"), false);
+        vSample2 = text("", 13, Color.parseColor("#FECACA"), false);
+        vSample3 = text("", 13, Color.parseColor("#FECACA"), false);
+        for (TextView t : new TextView[]{vSample1, vSample2, vSample3}) {
+            t.setPadding(dp(10), dp(8), dp(10), dp(8));
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+            p.topMargin = dp(8);
+            c2.addView(t, p);
+        }
+        vSample1.setBackground(box(Color.parseColor("#226366F1"), 12, Color.parseColor("#6366F1")));
+        vSample2.setBackground(box(Color.parseColor("#22DC2626"), 12, BAD));
+        vSample3.setBackground(box(Color.parseColor("#22DC2626"), 12, BAD));
+        r2.addView(c2);
+
+        LinearLayout c3 = card();
+        c3.addView(text("AAJ", 11, MUTED, true));
+        vToday1 = text("", 15, TXT, false);
+        vToday2 = text("", 15, TXT, false);
+        vToday3 = text("", 15, TXT, false);
+        for (TextView t : new TextView[]{vToday1, vToday2, vToday3}) {
+            t.setPadding(0, dp(8), 0, 0);
+            c3.addView(t);
+        }
+        r2.addView(c3);
+        return s2;
+    }
+
+    void setLang(String l) { sp.edit().putString("voice_lang", l).apply(); sTap(); refreshVoiceUi(); }
+    void setMode(String m) { sp.edit().putString("voice_mode", m).apply(); sTap(); refreshVoiceUi(); }
+
+    String curLang() {
+        String pref = sp.getString("voice_lang", "auto");
+        if (pref.equals("hi")) return "hi";
+        if (pref.equals("en")) return "en";
+        return "hi";
+    }
+
+    void refreshVoiceUi() {
+        if (vSw == null) return;
+        boolean on = sp.getBoolean("voice_on", true);
+        setChip(vSw, on, "ON \u2713", "OFF");
+        String l = sp.getString("voice_lang", "auto");
+        paintSeg(vHi, l.equals("hi"));
+        paintSeg(vEn, l.equals("en"));
+        paintSeg(vAuto, l.equals("auto"));
+        String m = sp.getString("voice_mode", "all");
+        paintSeg(vAll, m.equals("all"));
+        paintSeg(vWarn, m.equals("warn"));
+        String lg = curLang();
+        vSample1.setText("\u201C" + Voice.say("paid", lg, "26", "") + "\u201D");
+        vSample2.setText("\u201C" + Voice.say("wrong", lg, "2", "500") + "\u201D");
+        vSample3.setText("\u201C" + Voice.say("noorder", lg, "5", "") + "\u201D");
+        renderToday();
+    }
+
+    void testVoice() {
+        if (ttsT == null || !ttsTReady) {
+            Toast.makeText(this, "Voice engine is not ready. Check Settings > Text-to-speech.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        try {
+            ttsT.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+            String lang = Voice.pick(ttsT, sp.getString("voice_lang", "auto"));
+            if (lang.equals("en") && !sp.getString("voice_lang", "auto").equals("en")) {
+                Toast.makeText(this, "Hindi voice not found on this phone. Using English.", Toast.LENGTH_LONG).show();
+            }
+            ttsT.speak(Voice.say("paid", lang, "26", ""), TextToSpeech.QUEUE_FLUSH, null, "test1");
+            ttsT.speak(Voice.say("wrong", lang, "2", "500"), TextToSpeech.QUEUE_ADD, null, "test2");
+        } catch (Exception e) {
+            Toast.makeText(this, "Could not play voice.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    void renderToday() {
+        if (vToday1 == null) return;
+        String h = sp.getString("hist", "");
+        int cnt = 0, warn = 0;
+        double tot = 0;
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        c.set(java.util.Calendar.MILLISECOND, 0);
+        long start = c.getTimeInMillis();
+        if (!h.isEmpty()) {
+            for (String line : h.split("\n")) {
+                String[] f = line.split("\\|", 6);
+                if (f.length < 4) continue;
+                try {
+                    long ts = Long.parseLong(f[0]);
+                    if (ts < start) continue;
+                    int code = Integer.parseInt(f[1]);
+                    String res = f.length > 4 ? f[4] : "";
+                    cnt++;
+                    if (code == 200 && (res.equals("wrong") || res.equals("no_order"))) warn++;
+                    else if (code == 200) tot += Double.parseDouble(f[2].replace(",", ""));
+                } catch (Exception ignored) { }
+            }
+        }
+        String ts2 = (tot == Math.floor(tot)) ? String.valueOf((long) tot) : String.format(Locale.US, "%.2f", tot);
+        vToday1.setText("Payments:  " + cnt);
+        vToday2.setText("Total received:  \u20B9" + ts2);
+        vToday3.setText("Warnings:  " + warn);
+        vToday3.setTextColor(warn > 0 ? Color.parseColor("#F87171") : TXT);
+    }
+
+    @Override
+    protected void onDestroy() {
+        try { if (ttsT != null) { ttsT.stop(); ttsT.shutdown(); } } catch (Exception ignored) { }
+        super.onDestroy();
     }
 
     @Override
@@ -466,8 +740,18 @@ public class MainActivity extends Activity {
         boolean valid = (rc == 400 || rc == 200);
         if (valid) {
             sp.edit().putString("secret", k).putBoolean("verified", true).apply();
-            sOk();
-            if (!fromLogin) Toast.makeText(this, "Connection OK ✓", Toast.LENGTH_SHORT).show();
+            if (!fromLogin) {
+                if (!notifOn()) {
+                    sErr();
+                    Toast.makeText(this, "Notification Access is OFF. Payments will NOT be detected. Tap the red box to fix.", Toast.LENGTH_LONG).show();
+                } else if (!battOk()) {
+                    sErr();
+                    Toast.makeText(this, "Background / Battery is OFF. Payments may be missed. Tap the red box to fix.", Toast.LENGTH_LONG).show();
+                } else {
+                    sOk();
+                    Toast.makeText(this, "Connection OK \u2713 Everything is ON", Toast.LENGTH_SHORT).show();
+                }
+            } else sOk();
         } else if (rc == 401) {
             sErr();
             sp.edit().remove("secret").remove("verified").apply();
@@ -563,6 +847,7 @@ public class MainActivity extends Activity {
             histBox.addView(item);
         }
         String tot = (total == Math.floor(total)) ? String.valueOf((long) total) : String.format(Locale.US, "%.2f", total);
+        renderToday();
         histTotal.setText(count + " payments  \u2022  Total \u20B9" + tot);
     }
 

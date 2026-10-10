@@ -6,7 +6,9 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
 import android.service.notification.NotificationListenerService;
+import android.speech.tts.TextToSpeech;
 import android.service.notification.StatusBarNotification;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,6 +19,56 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class NotifService extends NotificationListenerService {
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private final java.util.ArrayList<String[]> pendingSay = new java.util.ArrayList<>();
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        try {
+            tts = new TextToSpeech(getApplicationContext(), status -> {
+                if (status == TextToSpeech.SUCCESS) {
+                    try {
+                        tts.setAudioAttributes(new AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_MEDIA)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                    } catch (Exception ignored) { }
+                    synchronized (pendingSay) {
+                        ttsReady = true;
+                        for (String[] p : pendingSay) speakNow(p[0], p[1], p[2]);
+                        pendingSay.clear();
+                    }
+                }
+            });
+        } catch (Exception ignored) { }
+    }
+
+    @Override
+    public void onDestroy() {
+        try { if (tts != null) { tts.stop(); tts.shutdown(); } } catch (Exception ignored) { }
+        super.onDestroy();
+    }
+
+    private void speak(String kind, String amount, String exp) {
+        SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
+        if (!sp.getBoolean("voice_on", true)) return;
+        boolean warn = kind.equals("wrong") || kind.equals("noorder") || kind.equals("failed");
+        if (sp.getString("voice_mode", "all").equals("warn") && !warn) return;
+        synchronized (pendingSay) {
+            if (!ttsReady) { pendingSay.add(new String[]{kind, amount, exp}); return; }
+        }
+        speakNow(kind, amount, exp);
+    }
+
+    private void speakNow(String kind, String amount, String exp) {
+        try {
+            SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
+            String lang = Voice.pick(tts, sp.getString("voice_lang", "auto"));
+            tts.speak(Voice.say(kind, lang, amount, exp), TextToSpeech.QUEUE_ADD, null, "jspay" + System.nanoTime());
+        } catch (Exception ignored) { }
+    }
+
     static final String URL_NOTIFY = "https://jitustore.shop/pay/gpay/notify.php";
 
     static boolean online(Context c) {
@@ -105,6 +157,11 @@ public class NotifService extends NotificationListenerService {
             long lt = sp0.getLong("lastkeyt", 0);
             if (key.equals(lk) && Math.abs(ts - lt) < 120000L) return; // same notification dobara: list mein mat dikhao
             sp0.edit().putString("lastkey", key).putLong("lastkeyt", ts).apply();
+            if (code != 200) speak("failed", amount, exp);
+            else if (res.equals("paid")) speak("paid", amount, exp);
+            else if (res.equals("wrong")) speak("wrong", amount, exp);
+            else if (res.equals("no_order")) speak("noorder", amount, exp);
+            else if (!res.equals("duplicate") && !res.equals("ignored")) speak("plain", amount, exp);
             String line = ts + "|" + code + "|" + amount + "|" + sum + "|" + res + "|" + exp;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
             String old = sp.getString("hist", "");
