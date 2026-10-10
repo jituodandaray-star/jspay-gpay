@@ -281,6 +281,7 @@ public class MainActivity extends Activity {
         TextView tag = text("Payments verified instantly. Zero manual work.", 14, MUTED, false);
         tag.setPadding(0, dp(16), 0, 0);
         root.addView(tag);
+        root.addView(buildPlanCard());
 
         // ---- LOGIN BOX ----
         loginBox = new LinearLayout(this);
@@ -380,6 +381,7 @@ public class MainActivity extends Activity {
         ac.setLayoutParams(alp);
         TextView bLogout = button("Logout", false, v -> {
             sp.edit().remove("secret").remove("verified").apply();
+            Plan.clear(this);
             Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
             refresh();
         });
@@ -400,7 +402,7 @@ public class MainActivity extends Activity {
         panel.setGravity(Gravity.CENTER);
         panel.setPadding(0, dp(22), 0, dp(6));
         panel.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://jitustore.shop/pay/auth/gpay.php"))));
+                Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
         TextView foot = text("Secured by JS PAY  •  v1.7", 12, Color.parseColor("#64748B"), false);
@@ -428,8 +430,10 @@ public class MainActivity extends Activity {
         }
         if (!splashShown) {
             splashShown = true;
-            frame.addView(buildSplash(), new FrameLayout.LayoutParams(-1, -1));
+            splashRef = buildSplash();
+            frame.addView(splashRef, new FrameLayout.LayoutParams(-1, -1));
         }
+        frame.addView(buildLock(), new FrameLayout.LayoutParams(-1, -1));
         setContentView(frame);
         try {
             ttsT = new TextToSpeech(getApplicationContext(), st2 -> { ttsTReady = (st2 == TextToSpeech.SUCCESS); });
@@ -495,6 +499,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (isLocked()) return;
         if (!cur.equals("home")) goBack(); else super.onBackPressed();
     }
 
@@ -805,6 +810,7 @@ public class MainActivity extends Activity {
         if (code != 200) return "failed";
         if (f[4].equals("wrong")) return "wrong";
         if (f[4].equals("no_order")) return "noorder";
+        if (f[4].equals("expired")) return "expired";
         if (f[4].equals("paid")) return "paid";
         return "plain";
     }
@@ -824,7 +830,7 @@ public class MainActivity extends Activity {
 
     View payItem(String[] f) {
         String kind = kindOf(f);
-        boolean bad = kind.equals("wrong") || kind.equals("noorder") || kind.equals("failed");
+        boolean bad = kind.equals("wrong") || kind.equals("noorder") || kind.equals("failed") || kind.equals("expired");
         boolean paid = kind.equals("paid");
         long ts = 0;
         try { ts = Long.parseLong(f[0]); } catch (Exception ignored) { }
@@ -843,6 +849,7 @@ public class MainActivity extends Activity {
         if (paid) { c.setText("✓ Order PAID"); c.setBackground(box(GOOD, 20, 0)); }
         else if (kind.equals("wrong")) { c.setText("✕ Galat amount"); c.setBackground(box(BAD, 20, 0)); }
         else if (kind.equals("noorder")) { c.setText("✕ Bina order"); c.setBackground(box(BAD, 20, 0)); }
+        else if (kind.equals("expired")) { c.setText("✕ Premium khatam"); c.setBackground(box(BAD, 20, 0)); }
         else if (kind.equals("failed")) { c.setText("✕ Failed"); c.setBackground(box(BAD, 20, 0)); }
         else { c.setText("✓ Sent"); c.setBackground(box(GOOD, 20, 0)); }
         r.addView(c);
@@ -861,6 +868,7 @@ public class MainActivity extends Activity {
         String note = paid ? "Order mil gaya. Paisa credit ho gaya."
                 : kind.equals("wrong") ? "Order ₹" + f[5] + " ka tha, ₹" + f[2] + " aaya. Credit nahi hoga."
                 : kind.equals("noorder") ? "Koi order nahi tha. Credit nahi hoga."
+                : kind.equals("expired") ? "Premium khatam. Renew karo, tab payment verify hogi."
                 : "Server tak nahi pahunchi.";
         TextView nt = text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false);
         nt.setPadding(0, dp(6), 0, 0);
@@ -904,7 +912,7 @@ public class MainActivity extends Activity {
             today.add(f);
             String k = kindOf(f);
             if (k.equals("paid") || k.equals("plain")) { paid++; total += amtOf(f); }
-            else if (k.equals("wrong") || k.equals("noorder")) warn++;
+            else if (k.equals("wrong") || k.equals("noorder") || k.equals("expired")) warn++;
             if (ts > lastTs) lastTs = ts;
         }
         LinearLayout big = card();
@@ -951,7 +959,7 @@ public class MainActivity extends Activity {
         for (String[] f : loadHist()) {
             String k = kindOf(f);
             boolean isPaid = k.equals("paid") || k.equals("plain");
-            boolean isWarn = k.equals("wrong") || k.equals("noorder") || k.equals("failed");
+            boolean isWarn = k.equals("wrong") || k.equals("noorder") || k.equals("failed") || k.equals("expired");
             if (histFilter.equals("paid") && !isPaid) continue;
             if (histFilter.equals("warn") && !isWarn) continue;
             if (n++ >= 50) break;
@@ -1036,9 +1044,10 @@ public class MainActivity extends Activity {
         c.addView(kv("Login Key", masked));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
-        aboutBox.addView(button("Open Panel", true, v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://jitustore.shop/pay/auth/gpay.php")))));
+        aboutBox.addView(button("Open Panel", true, v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Sx.PANEL)))));
         aboutBox.addView(button("Logout", false, v -> {
             sp.edit().remove("secret").remove("verified").apply();
+            Plan.clear(this);
             Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show();
             jumpHome();
             refresh();
@@ -1166,6 +1175,19 @@ public class MainActivity extends Activity {
         scr.addView(payMini("₹26", "✓ Order PAID", true));
         scr.addView(payMini("₹2", "✕ Galat amount", false));
         scr.addView(payMini("₹11", "✓ Order PAID", true));
+        scr.addView(payMini("₹100", "✓ Order PAID", true));
+        LinearLayout vb = new LinearLayout(this);
+        vb.setGravity(Gravity.CENTER_VERTICAL);
+        vb.setPadding(dp(10), dp(8), dp(10), dp(8));
+        vb.setBackground(box(CARD, 10, LINE));
+        vb.addView(text("Voice & Alerts", 10, Color.WHITE, true), new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView von = text("ON ✓", 8, Color.WHITE, true);
+        von.setPadding(dp(7), dp(3), dp(7), dp(3));
+        von.setBackground(box(GOOD, 10, 0));
+        vb.addView(von);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
+        vlp.topMargin = dp(10);
+        scr.addView(vb, vlp);
         return body;
     }
 
@@ -1211,7 +1233,7 @@ public class MainActivity extends Activity {
         TextView c1 = chipFloat("✓ ₹26 Order PAID", Color.parseColor("#16A34A"), Color.parseColor("#059669"), 13);
         FrameLayout.LayoutParams l1 = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
         l1.leftMargin = dp(14);
-        l1.topMargin = top + dp(70);
+        l1.topMargin = top + dp(262);
         sp0.addView(c1, l1);
         floatAnim(c1, 8, 1700, -6f, 3f, 200);
         TextView c2 = chipFloat("₹78 aaj mila", Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6"), 13);
@@ -1223,7 +1245,7 @@ public class MainActivity extends Activity {
         TextView c3 = chipFloat("Auto verify · 24x7", Color.parseColor("#0EA5E9"), Color.parseColor("#6366F1"), 12);
         FrameLayout.LayoutParams l3 = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
         l3.leftMargin = dp(26);
-        l3.topMargin = top + dp(320);
+        l3.topMargin = top + dp(335);
         sp0.addView(c3, l3);
         floatAnim(c3, 7, 1500, 4f, 3f, 700);
 
@@ -1277,6 +1299,7 @@ public class MainActivity extends Activity {
                 for (android.animation.Animator a : splashAnims) a.cancel();
                 splashAnims.clear();
                 if (sp0.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) sp0.getParent()).removeView(sp0);
+                planTick();
             }).start();
         };
         sp0.setOnClickListener(v -> finish.run());
@@ -1297,10 +1320,212 @@ public class MainActivity extends Activity {
         return sp0;
     }
 
+
+    // ================= PREMIUM PLAN (date + live countdown + lock) =================
+    LinearLayout planBox;
+    TextView planHead, planDate, planNote, planBtn;
+    TextView[] planNum = new TextView[4];
+    FrameLayout lockView;
+    TextView lockDate;
+    View splashRef;
+    boolean planTicking = false;
+    final android.os.Handler planH = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    LinearLayout buildPlanCard() {
+        planBox = new LinearLayout(this);
+        planBox.setOrientation(LinearLayout.VERTICAL);
+        planBox.setPadding(dp(14), dp(12), dp(14), dp(14));
+        planBox.setVisibility(View.GONE);
+        planHead = text("PREMIUM PLAN", 11, MUTED, true);
+        planBox.addView(planHead);
+        LinearLayout r1 = new LinearLayout(this);
+        r1.setGravity(Gravity.CENTER_VERTICAL);
+        r1.addView(text("Valid till", 14, TXT, false), new LinearLayout.LayoutParams(0, -2, 1f));
+        planDate = text("-", 15, Color.WHITE, true);
+        r1.addView(planDate);
+        LinearLayout.LayoutParams r1p = new LinearLayout.LayoutParams(-1, -2);
+        r1p.topMargin = dp(6);
+        planBox.addView(r1, r1p);
+        LinearLayout cd = new LinearLayout(this);
+        String[] nm = {"DIN", "GHANTE", "MIN", "SEC"};
+        for (int i = 0; i < 4; i++) {
+            LinearLayout b = new LinearLayout(this);
+            b.setOrientation(LinearLayout.VERTICAL);
+            b.setGravity(Gravity.CENTER);
+            b.setPadding(0, dp(7), 0, dp(7));
+            b.setBackground(box(Color.parseColor("#0B1128"), 10, Color.parseColor("#2B3A73")));
+            planNum[i] = text("--", 22, Color.WHITE, true);
+            planNum[i].setGravity(Gravity.CENTER);
+            b.addView(planNum[i]);
+            TextView l = text(nm[i], 9, MUTED, false);
+            l.setGravity(Gravity.CENTER);
+            b.addView(l);
+            LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(0, -2, 1f);
+            if (i > 0) bp.leftMargin = dp(7);
+            cd.addView(b, bp);
+        }
+        LinearLayout.LayoutParams cdp = new LinearLayout.LayoutParams(-1, -2);
+        cdp.topMargin = dp(10);
+        planBox.addView(cd, cdp);
+        planNote = text("", 12, Color.parseColor("#FDE68A"), false);
+        planNote.setPadding(0, dp(9), 0, 0);
+        planNote.setVisibility(View.GONE);
+        planBox.addView(planNote);
+        planBtn = text("Renew karo", 14, Color.WHITE, true);
+        planBtn.setGravity(Gravity.CENTER);
+        planBtn.setPadding(0, dp(10), 0, dp(10));
+        planBtn.setBackground(box(PRIMARY, 12, 0));
+        planBtn.setVisibility(View.GONE);
+        planBtn.setOnClickListener(v -> openPremium());
+        press(planBtn);
+        LinearLayout.LayoutParams pbp = new LinearLayout.LayoutParams(-1, -2);
+        pbp.topMargin = dp(10);
+        planBox.addView(planBtn, pbp);
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(-1, -2);
+        pp.topMargin = dp(16);
+        planBox.setLayoutParams(pp);
+        return planBox;
+    }
+
+    void openPremium() {
+        try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Sx.PREMIUM))); } catch (Exception ignored) { }
+    }
+
+    FrameLayout buildLock() {
+        lockView = new FrameLayout(this);
+        lockView.setBackgroundColor(Color.parseColor("#E6020410"));
+        lockView.setClickable(true);
+        lockView.setFocusable(true);
+        lockView.setOnTouchListener((v, e) -> true);
+        lockView.setVisibility(View.GONE);
+        LinearLayout pop = new LinearLayout(this);
+        pop.setOrientation(LinearLayout.VERTICAL);
+        pop.setGravity(Gravity.CENTER_HORIZONTAL);
+        pop.setPadding(dp(18), dp(22), dp(18), dp(20));
+        pop.setBackground(box(Color.parseColor("#14091C"), 24, Color.parseColor("#EF4444")));
+        TextView ex = text("!", 34, Color.parseColor("#F87171"), true);
+        ex.setGravity(Gravity.CENTER);
+        GradientDrawable ring = new GradientDrawable();
+        ring.setShape(GradientDrawable.OVAL);
+        ring.setColor(Color.TRANSPARENT);
+        ring.setStroke(dp(3), Color.parseColor("#EF4444"));
+        ex.setBackground(ring);
+        pop.addView(ex, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        TextView badge = text("PLAN EXPIRED", 12, Color.WHITE, true);
+        badge.setPadding(dp(14), dp(4), dp(14), dp(4));
+        badge.setBackground(box(BAD, 14, 0));
+        LinearLayout.LayoutParams bgp = new LinearLayout.LayoutParams(-2, -2);
+        bgp.topMargin = dp(12);
+        pop.addView(badge, bgp);
+        TextView t = text("Your plan is expired", 24, Color.parseColor("#F87171"), true);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(0, dp(8), 0, 0);
+        pop.addView(t);
+        lockDate = text("", 12, MUTED, false);
+        lockDate.setGravity(Gravity.CENTER);
+        pop.addView(lockDate);
+        TextView msg = text("Plan jaldi renew kar lo.\nAapka payment ruka hua hai. Ab koi payment karega to auto verification kaam nahi karega aur order PAID nahi hoga.", 13, Color.parseColor("#FECACA"), false);
+        msg.setPadding(dp(12), dp(11), dp(12), dp(11));
+        msg.setBackground(box(Color.parseColor("#26DC2626"), 12, BAD));
+        LinearLayout.LayoutParams mp2 = new LinearLayout.LayoutParams(-1, -2);
+        mp2.topMargin = dp(14);
+        pop.addView(msg, mp2);
+        TextView go = text("Renew karo — ShopBot Builder kholo", 14, Color.WHITE, true);
+        go.setGravity(Gravity.CENTER);
+        go.setPadding(0, dp(13), 0, dp(13));
+        go.setBackground(box(PRIMARY, 13, 0));
+        go.setOnClickListener(v -> openPremium());
+        press(go);
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-1, -2);
+        gp.topMargin = dp(14);
+        pop.addView(go, gp);
+        final TextView again = text("Renew kar liya? Phir se check karo", 12, Color.parseColor("#93C5FD"), true);
+        again.setGravity(Gravity.CENTER);
+        again.setPadding(0, dp(12), 0, dp(2));
+        again.setOnClickListener(v -> {
+            again.setText("Check ho raha hai...");
+            Plan.refresh(this, () -> { again.setText("Renew kar liya? Phir se check karo"); planTick(); });
+        });
+        pop.addView(again);
+        TextView sm = text("Jab tak renew nahi hoga, app ke saare button band rahenge.", 11, MUTED, false);
+        sm.setGravity(Gravity.CENTER);
+        sm.setPadding(0, dp(8), 0, 0);
+        pop.addView(sm);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER);
+        lp.setMargins(dp(20), 0, dp(20), 0);
+        lockView.addView(pop, lp);
+        return lockView;
+    }
+
+    boolean splashDone() { return splashRef == null || splashRef.getParent() == null; }
+
+    boolean isLocked() { return lockView != null && lockView.getVisibility() == View.VISIBLE; }
+
+    void planTick() {
+        if (planBox == null) return;
+        if (!Plan.has(this)) {
+            planBox.setVisibility(View.GONE);
+            if (lockView != null) lockView.setVisibility(View.GONE);
+            return;
+        }
+        long left = Plan.leftMs(this);
+        String d = new SimpleDateFormat("dd MMM yyyy", Locale.US).format(new Date(Plan.expTs(this) * 1000L));
+        planBox.setVisibility(View.VISIBLE);
+        planDate.setText(d);
+        if (left <= 0) {
+            for (TextView n : planNum) n.setText("00");
+            planBox.setBackground(box(Color.parseColor("#26DC2626"), 16, BAD));
+            planHead.setText("PLAN EXPIRED");
+            planHead.setTextColor(Color.parseColor("#F87171"));
+            planDate.setTextColor(Color.parseColor("#F87171"));
+            lockDate.setText("Khatam hui: " + d);
+            if (splashDone() && lockView.getVisibility() != View.VISIBLE) {
+                lockView.setAlpha(0f);
+                lockView.setVisibility(View.VISIBLE);
+                lockView.animate().alpha(1f).setDuration(300).start();
+                if (!cur.equals("home")) jumpHome();
+            }
+            return;
+        }
+        if (lockView.getVisibility() == View.VISIBLE) lockView.setVisibility(View.GONE);
+        long s = left / 1000L;
+        planNum[0].setText(String.valueOf(s / 86400));
+        planNum[1].setText(String.format(Locale.US, "%02d", (s % 86400) / 3600));
+        planNum[2].setText(String.format(Locale.US, "%02d", (s % 3600) / 60));
+        planNum[3].setText(String.format(Locale.US, "%02d", s % 60));
+        boolean soon = s < 3 * 86400L;
+        int col = soon ? Color.parseColor("#FBBF24") : Color.WHITE;
+        for (TextView n : planNum) n.setTextColor(col);
+        planDate.setTextColor(col);
+        planBox.setBackground(soon ? box(Color.parseColor("#2A1D0A"), 16, Color.parseColor("#D97706")) : box(CARD, 16, LINE));
+        planHead.setText(soon ? "⚠ PLAN JALDI KHATAM HOGA" : "PREMIUM PLAN");
+        planHead.setTextColor(soon ? Color.parseColor("#FBBF24") : MUTED);
+        planNote.setText("Renew kar lo, warna payment verify band ho jayegi.");
+        planNote.setVisibility(soon ? View.VISIBLE : View.GONE);
+        planBtn.setVisibility(soon ? View.VISIBLE : View.GONE);
+    }
+
+    void startPlanTicker() {
+        if (planTicking) return;
+        planTicking = true;
+        planH.post(new Runnable() {
+            int n = 0;
+            @Override public void run() {
+                if (!planTicking) return;
+                planTick();
+                if (isLocked() && ++n % 30 == 0) Plan.refresh(MainActivity.this, MainActivity.this::planTick);
+                planH.postDelayed(this, 1000);
+            }
+        });
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
         if (bg != null) bg.go();
+        planTick();
+        startPlanTicker();
+        Plan.refresh(this, this::planTick);
         refresh();
         onShow(cur);
     }
@@ -1308,6 +1533,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        planTicking = false;
         if (bg != null) bg.stop();
     }
 
@@ -1385,6 +1611,7 @@ public class MainActivity extends Activity {
         } else if (rc == 401) {
             sErr();
             sp.edit().remove("secret").remove("verified").apply();
+            Plan.clear(this);
             if (fromLogin) loginMsg.setText("Invalid Login Key. Copy it again from the panel.");
             else Toast.makeText(this, "Login Key is invalid, please log in again", Toast.LENGTH_LONG).show();
         } else if (rc == -1) {
@@ -1424,7 +1651,8 @@ public class MainActivity extends Activity {
             boolean paid = ok && res.equals("paid");
             boolean wrong = ok && res.equals("wrong");
             boolean noord = ok && res.equals("no_order");
-            boolean bad = wrong || noord;
+            boolean expd = ok && res.equals("expired");
+            boolean bad = wrong || noord || expd;
             count++;
             if (paid || (ok && !bad)) {
                 try { total += Double.parseDouble(f[2].replace(",", "")); } catch (Exception ignored) { }
@@ -1452,6 +1680,7 @@ public class MainActivity extends Activity {
             if (paid) { c.setText("\u2713 Order PAID"); c.setBackground(box(GOOD, 20, 0)); }
             else if (wrong) { c.setText("\u2715 Galat amount"); c.setBackground(box(BAD, 20, 0)); }
             else if (noord) { c.setText("\u2715 Bina order"); c.setBackground(box(BAD, 20, 0)); }
+            else if (expd) { c.setText("\u2715 Premium khatam"); c.setBackground(box(BAD, 20, 0)); }
             else setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
             r.addView(c);
             View item = r;
@@ -1465,6 +1694,8 @@ public class MainActivity extends Activity {
                 card.addView(r);
                 String note = paid ? "Order mil gaya. Paisa credit ho gaya."
                         : wrong ? "Order \u20B9" + exp + " ka tha, \u20B9" + f[2] + " aaya. Credit nahi hoga."
+                        : expd ? "Premium khatam. Renew karo, tab payment verify hogi."
+                        : expd ? "Premium khatam. Renew karo, tab payment verify hogi."
                         : "Koi order nahi tha. Credit nahi hoga.";
                 card.addView(text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false));
                 LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);

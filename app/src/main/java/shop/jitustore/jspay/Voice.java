@@ -14,6 +14,7 @@ public class Voice {
                 case "paid": return "जेएस पे पर " + a + " प्राप्त हुए।";
                 case "wrong": return "सावधान! गलत अमाउंट। " + a + " आए, ऑर्डर " + e + " का था।";
                 case "noorder": return "सावधान! बिना ऑर्डर के " + a + " आए।";
+                case "expired": return "सावधान! आपका प्रीमियम खत्म हो गया है। पेमेंट वेरीफाई नहीं हुई। रिन्यू करें।";
                 case "failed": return "पेमेंट सर्वर तक नहीं पहुंची। इंटरनेट चेक करें।";
                 default: return "जेएस पे पर " + a + " प्राप्त हुए।";
             }
@@ -22,6 +23,7 @@ public class Voice {
             case "paid": return "Received " + a + " on J S Pay.";
             case "wrong": return "Warning. Wrong amount. " + a + " received, order was " + e + ".";
             case "noorder": return "Warning. " + a + " received without any order.";
+            case "expired": return "Warning. Your premium has expired. Payment was not verified. Please renew.";
             case "failed": return "Payment could not reach the server. Check internet.";
             default: return "Received " + a + " on J S Pay.";
         }

@@ -69,7 +69,7 @@ public class NotifService extends NotificationListenerService {
         } catch (Exception ignored) { }
     }
 
-    static final String URL_NOTIFY = "https://jitustore.shop/pay/gpay/notify.php";
+    static final String URL_NOTIFY = Sx.NOTIFY;
 
     static boolean online(Context c) {
         try {
@@ -161,6 +161,7 @@ public class NotifService extends NotificationListenerService {
             else if (res.equals("paid")) speak("paid", amount, exp);
             else if (res.equals("wrong")) speak("wrong", amount, exp);
             else if (res.equals("no_order")) speak("noorder", amount, exp);
+            else if (res.equals("expired")) { Plan.markExpired(this); speak("expired", amount, exp); }
             else if (!res.equals("duplicate") && !res.equals("ignored")) speak("plain", amount, exp);
             String line = ts + "|" + code + "|" + amount + "|" + sum + "|" + res + "|" + exp;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
