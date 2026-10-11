@@ -194,14 +194,14 @@ public class DashService extends Service {
             try {
                 web.onResume();
                 web.resumeTimers();
-                if (tick % 5 == 0) { loadedAt = 0; web.reload(); }   // ~20 sec
-                else if (loadedAt > 0 && System.currentTimeMillis() - loadedAt > 2500) {
+                if (tick % 3 == 0) { loadedAt = 0; web.reload(); }   // ~6 sec
+                else if (loadedAt > 0 && System.currentTimeMillis() - loadedAt > 1500) {
                     web.evaluateJavascript("(function(){return document.body?document.body.innerText:''})()", val -> {
                         try { onText(DashActivity.unquote(val)); } catch (Exception ignored) { }
                     });
                 }
             } catch (Exception ignored) { }
-            h.postDelayed(this, 4000);
+            h.postDelayed(this, 2000);
         }
     };
 
@@ -239,7 +239,7 @@ public class DashService extends Service {
                 set.add(t[0]);
                 add.append(t[0]).append("\n");
                 String nm = t[2].isEmpty() ? "Customer" : t[2];
-                NotifService.feed(this, "Received", "₹" + t[1] + " received from " + nm + " at " + time12(t[3]), t[0]);
+                NotifService.feed(this, "Google Pay", "₹" + t[1] + " received from " + nm + " at " + time12(t[3]), t[0]);
             }
         }
         if (add.length() > 0) {
