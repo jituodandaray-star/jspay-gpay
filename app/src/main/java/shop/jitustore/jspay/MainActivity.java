@@ -483,7 +483,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.17", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.18", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -1050,7 +1050,7 @@ public class MainActivity extends Activity {
         o[0].addView(menuItem("V", "#312E81", "Voice Alert", "Awaaz, bhasha, kab bole", "voice"));
         o[0].addView(menuItem("₹", "#064E3B", "Aaj ka Hisaab", "Payments, total, warning", "today"));
         o[0].addView(menuItem("H", "#7C2D12", "Payment History", "Purani payments, hare/laal box", "history"));
-        o[0].addView(menuItem("D", "#0F766E", "Dashboard Mode (Beta)", "Notification ke bina, Google dashboard se", "dash"));
+        o[0].addView(menuItem("D", "#0F766E", "Attached Cashier", "Verify payments from Google dashboard", "dash"));
         o[0].addView(menuItem("S", "#1E3A8A", "Setup Check", "Sab ON hai ya nahi, ek jagah", "setup"));
         o[0].addView(menuItem("i", "#4C1D95", "About & Help", "Version, Open Panel, madad", "about"));
         return s;
@@ -1419,7 +1419,7 @@ public class MainActivity extends Activity {
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.17"));
+        c.addView(kv("Version", "v1.18"));
         c.addView(kv("Login Key", masked));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
@@ -1912,6 +1912,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         front = this;
+        DashService.ensure(this);
         if (bg != null) bg.go();
         planTick();
         startPlanTicker();

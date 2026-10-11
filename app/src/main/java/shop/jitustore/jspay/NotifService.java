@@ -27,7 +27,7 @@ public class NotifService extends NotificationListenerService {
     static NotifService helper;
 
     /** Dashboard Mode se aayi payment ko bhi wahi raaste se server bhejo (notification access ke bina bhi). */
-    static synchronized void feed(Context ctx, String title, String text) {
+    static synchronized void feed(Context ctx, String title, String text, String utr) {
         try {
             NotifService s = inst;
             if (s == null) {
@@ -42,8 +42,8 @@ public class NotifService extends NotificationListenerService {
             final NotifService f = s;
             final String sec = ctx.getSharedPreferences("c", Context.MODE_PRIVATE).getString("secret", "");
             if (sec.length() < 5) return;
-            final String ft = title, fx = text;
-            new Thread(() -> f.send(sec, ft, fx, System.currentTimeMillis())).start();
+            final String ft = title, fx = text, fu = utr == null ? "" : utr;
+            new Thread(() -> f.send(sec, ft, fx, System.currentTimeMillis(), fu)).start();
         } catch (Exception ignored) { }
     }
 
@@ -113,7 +113,7 @@ public class NotifService extends NotificationListenerService {
             String pkg = sbn.getPackageName();
             if (!pkg.startsWith("com.google.android.apps.nbu.paisa") && !pkg.toLowerCase().contains("bharatpe")) return;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
-            if (sp.getBoolean("dash_send", false)) return; // Dashboard Mode chalu: ek hi tarika se bhejo
+            if (System.currentTimeMillis() - sp.getLong("dash_ok", 0) < 90000L) return; // Cashier (Google dashboard) abhi chal raha hai: wahi bhejega
             final String secret = sp.getString("secret", "");
             if (secret.length() < 5) return;
             Notification n = sbn.getNotification();
@@ -142,7 +142,9 @@ public class NotifService extends NotificationListenerService {
         } catch (Exception ignored) { }
     }
 
-    private void send(String secret, String title, String text, long postTime) {
+    private void send(String secret, String title, String text, long postTime) { send(secret, title, text, postTime, ""); }
+
+    private void send(String secret, String title, String text, long postTime, String utr) {
         int code = -1;
         String res = "";
         String exp = "";
@@ -150,7 +152,8 @@ public class NotifService extends NotificationListenerService {
             try {
                 String body = "secret=" + URLEncoder.encode(secret, "UTF-8")
                         + "&title=" + URLEncoder.encode(title, "UTF-8")
-                        + "&text=" + URLEncoder.encode(text, "UTF-8");
+                        + "&text=" + URLEncoder.encode(text, "UTF-8")
+                        + (utr.isEmpty() ? "" : "&utr=" + URLEncoder.encode(utr, "UTF-8"));
                 HttpURLConnection c = (HttpURLConnection) new URL(URL_NOTIFY).openConnection();
                 c.setRequestMethod("POST");
                 c.setConnectTimeout(15000);
