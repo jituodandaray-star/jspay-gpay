@@ -23,9 +23,34 @@ public class NotifService extends NotificationListenerService {
     private boolean ttsReady = false;
     private final java.util.ArrayList<String[]> pendingSay = new java.util.ArrayList<>();
 
+    static NotifService inst;
+    static NotifService helper;
+
+    /** Dashboard Mode se aayi payment ko bhi wahi raaste se server bhejo (notification access ke bina bhi). */
+    static synchronized void feed(Context ctx, String title, String text) {
+        try {
+            NotifService s = inst;
+            if (s == null) {
+                if (helper == null) {
+                    NotifService h = new NotifService();
+                    helper = h;
+                    h.attachBaseContext(ctx.getApplicationContext());
+                    h.onCreate();
+                }
+                s = helper;
+            }
+            final NotifService f = s;
+            final String sec = ctx.getSharedPreferences("c", Context.MODE_PRIVATE).getString("secret", "");
+            if (sec.length() < 5) return;
+            final String ft = title, fx = text;
+            new Thread(() -> f.send(sec, ft, fx, System.currentTimeMillis())).start();
+        } catch (Exception ignored) { }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
+        if (helper != this) inst = this;
         try {
             tts = new TextToSpeech(getApplicationContext(), status -> {
                 if (status == TextToSpeech.SUCCESS) {
@@ -46,6 +71,7 @@ public class NotifService extends NotificationListenerService {
 
     @Override
     public void onDestroy() {
+        if (inst == this) inst = null;
         try { if (tts != null) { tts.stop(); tts.shutdown(); } } catch (Exception ignored) { }
         super.onDestroy();
     }
@@ -87,6 +113,7 @@ public class NotifService extends NotificationListenerService {
             String pkg = sbn.getPackageName();
             if (!pkg.startsWith("com.google.android.apps.nbu.paisa") && !pkg.toLowerCase().contains("bharatpe")) return;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
+            if (sp.getBoolean("dash_send", false)) return; // Dashboard Mode chalu: ek hi tarika se bhejo
             final String secret = sp.getString("secret", "");
             if (secret.length() < 5) return;
             Notification n = sbn.getNotification();
