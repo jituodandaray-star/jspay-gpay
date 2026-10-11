@@ -140,7 +140,18 @@ public class DashService extends Service {
             } catch (Exception ignored) { }
             web.setWebViewClient(new WebViewClient() {
                 @Override
-                public void onPageFinished(WebView v, String u) { loadedAt = System.currentTimeMillis(); }
+                public void onPageFinished(WebView v, String u) {
+                    loadedAt = System.currentTimeMillis();
+                    try {
+                        String uu = u == null ? "" : u;
+                        SharedPreferences.Editor e = sp.edit().putLong("dash_page", loadedAt).putString("dash_url", uu.length() > 60 ? uu.substring(0, 60) : uu);
+                        boolean out = uu.contains("accounts.google.com") || uu.contains("/g4b/signup");
+                        if (uu.contains("pay.google.com/g4b") && !out) { e.putLong("dash_ok", loadedAt); }
+                        e.apply();
+                    } catch (Exception ignored) { }
+                }
+                @Override
+                public void onReceivedError(WebView v, int code, String d, String u) { sp.edit().putString("dash_err", code + " " + d).apply(); }
             });
             try {
                 int w = getResources().getDisplayMetrics().widthPixels, hh = getResources().getDisplayMetrics().heightPixels;
@@ -150,6 +161,8 @@ public class DashService extends Service {
                 web.onResume();
                 web.resumeTimers();
             } catch (Throwable ignored) { }
+            ws.setUseWideViewPort(true);
+            web.setWebChromeClient(new android.webkit.WebChromeClient());
             web.loadUrl(url);
         } catch (Throwable t) { stopSelf(); return; }
         h.postDelayed(loop, 5000);
@@ -175,7 +188,7 @@ public class DashService extends Service {
     };
 
     private void onText(String text) {
-        boolean signedOut = (text.contains("Sign in") || text.contains("Sign-in")) && !text.contains("Transactions") && !text.contains("UPI transaction ID");
+        boolean signedOut = web != null && web.getUrl() != null && (web.getUrl().contains("accounts.google.com") || web.getUrl().contains("/g4b/signup")) || (text.contains("Sign in") || text.contains("Sign-in")) && !text.contains("Transactions") && !text.contains("UPI transaction ID");
         ArrayList<String[]> tx = parseTx(text);
         boolean loaded = !signedOut && text.length() > 100;
         sp.edit().putLong("dash_try", System.currentTimeMillis()).putInt("dash_len", text.length()).putInt("dash_tx", tx.size()).apply();

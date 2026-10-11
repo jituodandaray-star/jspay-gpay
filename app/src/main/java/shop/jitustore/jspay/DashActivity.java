@@ -58,8 +58,24 @@ public class DashActivity extends Activity {
     private boolean webMode = false, navigated = false, finishing2 = false;
     private long backAt = 0, webStart = 0;
     private final Runnable listTick = new Runnable() {
-        @Override public void run() { if (!webMode) { renderList(); h.postDelayed(this, 3000); } }
+        @Override public void run() { if (!webMode) { watchdog(); renderList(); h.postDelayed(this, 3000); } }
     };
+
+    long lastKick = 0;
+    /** Background service ko zinda rakho: band ho gaya ya heartbeat purana ho gaya to dobara shuru karo. */
+    void watchdog() {
+        try {
+            if (sp.getString("cashier_url", "").isEmpty()) return;
+            long now = System.currentTimeMillis();
+            if (now - sp.getLong("dash_ok", 0) > 120000L && now - lastKick > 60000L) {
+                lastKick = now;
+                DashService.stop(this);
+            }
+            DashService.ensure(this);
+        } catch (Exception ignored) { }
+    }
+
+    @Override protected void onResume() { super.onResume(); if (!webMode) watchdog(); }
 
     int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density + 0.5f); }
 
@@ -210,7 +226,7 @@ public class DashActivity extends Activity {
             listBox.addView(s);
             return;
         }
-        boolean alive = System.currentTimeMillis() - sp.getLong("dash_ok", 0) < 90000L;
+        boolean alive = System.currentTimeMillis() - sp.getLong("dash_ok", 0) < 180000L;
         boolean expired = sp.getString("cashier_state", "ok").equals("expired");
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
@@ -243,6 +259,12 @@ public class DashActivity extends Activity {
         TextView note = tv("Payments are verified from your Google Pay for Business dashboard. Keep this phone online.", 12, MUTED, false);
         note.setPadding(dp(6), dp(14), dp(6), 0);
         listBox.addView(note);
+        long pg = sp.getLong("dash_page", 0), tr = sp.getLong("dash_try", 0);
+        TextView dbg = tv("Last page load: " + (pg == 0 ? "never" : new SimpleDateFormat("hh:mm:ss a", Locale.US).format(new Date(pg)))
+                + "\nLast read: " + (tr == 0 ? "never" : new SimpleDateFormat("hh:mm:ss a", Locale.US).format(new Date(tr)) + "  (" + sp.getInt("dash_len", 0) + " chars, " + sp.getInt("dash_tx", 0) + " payments)")
+                + (sp.getString("dash_err", "").isEmpty() ? "" : "\nError: " + sp.getString("dash_err", "")), 11, Color.parseColor("#64748B"), false);
+        dbg.setPadding(dp(6), dp(10), dp(6), 0);
+        listBox.addView(dbg);
     }
 
     void showHelp() {
