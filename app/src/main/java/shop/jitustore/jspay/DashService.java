@@ -41,12 +41,21 @@ public class DashService extends Service {
     private boolean warned = false;
 
     static void ensure(Context c) {
+        SharedPreferences sp = null;
         try {
-            SharedPreferences sp = c.getSharedPreferences("c", Context.MODE_PRIVATE);
+            sp = c.getSharedPreferences("c", Context.MODE_PRIVATE);
             if (sp.getString("cashier_url", "").isEmpty()) return;
             Intent i = new Intent(c, DashService.class);
-            if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i); else c.startService(i);
-        } catch (Exception ignored) { }
+            try {
+                if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i); else c.startService(i);
+                sp.edit().putLong("svc_req", System.currentTimeMillis()).apply();
+            } catch (Throwable e1) {
+                sp.edit().putString("svc_stage", "start refused: " + e1).putLong("svc_ts", System.currentTimeMillis()).apply();
+                try { c.startService(i); } catch (Throwable e2) { sp.edit().putString("svc_stage", "start refused: " + e2).apply(); }
+            }
+        } catch (Throwable e) {
+            try { if (sp != null) sp.edit().putString("svc_stage", "ensure error: " + e).apply(); } catch (Throwable ignored) { }
+        }
     }
 
     void stage(String s) {
