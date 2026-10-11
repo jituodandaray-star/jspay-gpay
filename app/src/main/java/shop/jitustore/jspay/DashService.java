@@ -205,6 +205,7 @@ public class DashService extends Service {
             try {
                 web.onResume();
                 web.resumeTimers();
+                if (tick % 45 == 2 && !sp.getString("cashier_state", "ok").equals("expired")) Plan.refresh(DashService.this, null);   // ~90 sec heartbeat + plan date
                 if (tick % 3 == 0) { loadedAt = 0; web.reload(); }   // ~6 sec
                 else if (loadedAt > 0 && System.currentTimeMillis() - loadedAt > 1500) {
                     web.evaluateJavascript("(function(){return document.body?document.body.innerText:''})()", val -> {
@@ -250,6 +251,7 @@ public class DashService extends Service {
                 set.add(t[0]);
                 add.append(t[0]).append("\n");
                 String nm = t[2].isEmpty() ? "Customer" : t[2];
+                if (Plan.dead(this)) continue;   // plan expired: do not verify (marked as seen, never replayed)
                 NotifService.feed(this, "Google Pay", "₹" + t[1] + " received from " + nm + " at " + time12(t[3]), t[0]);
             }
         }

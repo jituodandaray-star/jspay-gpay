@@ -500,7 +500,7 @@ static final int MUTED = Color.parseColor("#6B6890");
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.20", 12, Color.parseColor("#8A87A8"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.21", 12, Color.parseColor("#8A87A8"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -1529,7 +1529,7 @@ static final int MUTED = Color.parseColor("#6B6890");
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.20"));
+        c.addView(kv("Version", "v1.21"));
         c.addView(kv("Cashier", sp.getString("cashier_url", "").isEmpty() ? "Not added" : "Added"));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);

@@ -35,6 +35,16 @@ final class Plan {
 
     static boolean has(Context c) { return sp(c).getBoolean("p_has", false); }
 
+    /** Plan khatam ho chuka hai (server ne expiry di aur samay nikal gaya). */
+    static boolean dead(Context c) { return has(c) && leftMs(c) <= 0; }
+
+    /** Bache hue poore din (aaj ke liye 0). Lifetime/unknown ke liye -1. */
+    static int daysLeft(Context c) {
+        if (!has(c)) return -1;
+        long l = leftMs(c);
+        return l <= 0 ? 0 : (int) ((l + 86399999L) / 86400000L);
+    }
+
     static long expTs(Context c) { return sp(c).getLong("p_exp", 0); }
 
     /** Bacha hua samay ms mein. Phone ki clock badalne se farak nahi padta (elapsedRealtime). */

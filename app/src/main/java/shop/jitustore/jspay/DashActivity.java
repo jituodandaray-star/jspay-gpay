@@ -82,7 +82,7 @@ public class DashActivity extends Activity {
 
     private final Runnable listTick = new Runnable() {
         @Override public void run() {
-            if (!webMode) { watchdog(); refresh(false); h.postDelayed(this, 3000); }
+            if (!webMode) { watchdog(); planPing(); refresh(false); h.postDelayed(this, 3000); }
         }
     };
     private final Runnable autoSwipe = new Runnable() {
@@ -116,6 +116,7 @@ public class DashActivity extends Activity {
         super.onResume();
         if (!webMode) {
             watchdog();
+            planPing();
             refresh(true);
             h.removeCallbacks(listTick);
             h.postDelayed(listTick, 3000);
@@ -536,9 +537,9 @@ public class DashActivity extends Activity {
         long now = System.currentTimeMillis();
         boolean alive = now - sp.getLong("svc_ok", 0) < 180000L || now - sp.getLong("cashier_ok_ts", 0) < 60000L;
         boolean expired = sp.getString("cashier_state", "ok").equals("expired");
-        String state = url.isEmpty() ? "none" : expired ? "expired" : alive ? "ok" : "connecting";
+        String state = url.isEmpty() ? "none" : Plan.dead(this) ? "plan" : expired ? "expired" : alive ? "ok" : "connecting";
         String hist = sp.getString("hist", "");
-        String ns = state + "|" + period + "|" + hist.length() + "|" + (hist.length() > 40 ? hist.substring(0, 40) : hist);
+        String ns = state + "|" + Plan.daysLeft(this) + "|" + period + "|" + hist.length() + "|" + (hist.length() > 40 ? hist.substring(0, 40) : hist);
         if (!force && ns.equals(sig)) return;
         sig = ns;
         renderHome(state);
@@ -554,8 +555,9 @@ public class DashActivity extends Activity {
         card.setBackground(box(BG, 18, LINE));
         ImageView tile = new ImageView(this);
         tile.setScaleType(ImageView.ScaleType.CENTER);
-        String ik = state.equals("ok") ? "check" : state.equals("connecting") ? "sync" : state.equals("expired") ? "warn" : "shield";
-        int ic = state.equals("ok") ? GREEN : state.equals("expired") ? RED : PRIMARY;
+        boolean bad = state.equals("expired") || state.equals("plan");
+        String ik = state.equals("ok") ? "check" : state.equals("connecting") ? "sync" : bad ? "warn" : "shield";
+        int ic = state.equals("ok") ? GREEN : bad ? RED : PRIMARY;
         tile.setImageDrawable(new Ic(ik, ic, dp(28)));
         tile.setBackground(box(HEAD, 16, 0));
         card.addView(tile, new LinearLayout.LayoutParams(dp(60), dp(60)));
@@ -565,9 +567,25 @@ public class DashActivity extends Activity {
         String title, sub, link;
         if (state.equals("none")) { title = "Add your cashier"; sub = "Verify Google Pay payments automatically."; link = "Add Cashier"; }
         else if (state.equals("ok")) { title = "Cashier connected"; sub = "Google Pay Business is verifying your payments."; link = "View cashier"; }
+        else if (state.equals("plan")) { title = "Plan expired"; sub = "Auto verify is paused. Renew your plan to continue."; link = "Renew plan"; }
         else if (state.equals("expired")) { title = "Cashier disconnected"; sub = "Sign in again to continue verification."; link = "Sign in again"; }
         else { title = "Connecting..."; sub = "Starting verification. Keep this phone online."; link = "View cashier"; }
-        t.addView(tv(title, 17, state.equals("expired") ? RED : TXT, false));
+        int dl0 = Plan.daysLeft(this);
+        if (state.equals("ok") && dl0 >= 0 && dl0 <= 3) { sub = "Plan ends " + (dl0 == 0 ? "today" : "in " + dl0 + (dl0 == 1 ? " day" : " days")) + ". Renew to keep auto verify."; }
+        int dotc = state.equals("ok") ? GREEN : state.equals("connecting") ? Color.parseColor("#F59E0B") : RED;
+        LinearLayout trow = new LinearLayout(this);
+        trow.setOrientation(LinearLayout.HORIZONTAL);
+        trow.setGravity(Gravity.CENTER_VERTICAL);
+        View dot = new View(this);
+        GradientDrawable dg = new GradientDrawable();
+        dg.setShape(GradientDrawable.OVAL);
+        dg.setColor(dotc);
+        dot.setBackground(dg);
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(dp(10), dp(10));
+        dlp.rightMargin = dp(8);
+        trow.addView(dot, dlp);
+        trow.addView(tv(title, 17, bad ? RED : TXT, false));
+        t.addView(trow);
         TextView st = tv(sub, 13, MUTED, false);
         st.setPadding(0, dp(3), 0, dp(6));
         t.addView(st);
@@ -576,6 +594,7 @@ public class DashActivity extends Activity {
         final String fstate = state;
         card.setOnClickListener(v -> {
             if (fstate.equals("none")) askCode();
+            else if (fstate.equals("plan")) openRenew();
             else if (fstate.equals("expired")) startLogin();
             else showCashier();
         });
@@ -710,7 +729,8 @@ public class DashActivity extends Activity {
         list.setOrientation(LinearLayout.VERTICAL);
         list.setPadding(dp(18), dp(18), dp(18), dp(100));
         String url = sp.getString("cashier_url", "");
-        String cs = url.isEmpty() ? "Not added" : sp.getString("cashier_state", "ok").equals("expired") ? "Disconnected" : "Connected";
+        String cs = url.isEmpty() ? "Not added" : Plan.dead(this) ? "Plan expired" : sp.getString("cashier_state", "ok").equals("expired") ? "Disconnected" : "Connected";
+        if (cs.equals("Connected") && Plan.has(this)) cs = "Connected  \u2022  plan till " + new SimpleDateFormat("dd MMM", Locale.US).format(new Date(Plan.expTs(this) * 1000L));
         list.addView(profRow("shield", "Cashier details", cs, () -> { if (sp.getString("cashier_url", "").isEmpty()) askCode(); else showCashier(); }));
         list.addView(profRow("vol", "Voice alerts", "Sound and language", () -> openPage("voice")));
         list.addView(profSwitch("vol", "Announce other apps", "PhonePe, Paytm and more. Voice only.", "voice_other"));
@@ -718,7 +738,7 @@ public class DashActivity extends Activity {
         list.addView(profRow("hist", "Payment history", "All payments", () -> openPage("history")));
         list.addView(profRow("batt", "Advanced settings", "Notification access, battery, pop-up", () -> openPage("setup")));
         list.addView(profRow("info", "Help & support", "About, panel and help", () -> openPage("about")));
-        TextView foot = tv("JS PAY  •  v1.20", 12, MUTED, false);
+        TextView foot = tv("JS PAY  •  v1.21", 12, MUTED, false);
         foot.setGravity(Gravity.CENTER);
         foot.setPadding(0, dp(22), 0, 0);
         list.addView(foot);
@@ -812,6 +832,27 @@ public class DashActivity extends Activity {
         return b;
     }
 
+    void openRenew() {
+        try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(Sx.PREMIUM))); } catch (Exception ignored) { }
+    }
+
+    private long lastPlan = 0;
+
+    /** Plan date server se naye sire se lo (har ~60 sec). */
+    void planPing() {
+        try {
+            long now = System.currentTimeMillis();
+            if (sp.getString("cashier_url", "").isEmpty() || now - lastPlan < 60000L) return;
+            lastPlan = now;
+            Plan.refresh(this, () -> {
+                if (isFinishing() || webMode) return;
+                sig = "";
+                refresh(true);
+                if (tab == 1) renderProfile();
+            });
+        } catch (Exception ignored) { }
+    }
+
     void showCashier() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -823,15 +864,32 @@ public class DashActivity extends Activity {
         long now = System.currentTimeMillis();
         boolean alive = now - sp.getLong("svc_ok", 0) < 180000L || now - sp.getLong("cashier_ok_ts", 0) < 60000L;
         boolean expired = sp.getString("cashier_state", "ok").equals("expired");
-        String st = expired ? "Disconnected" : alive ? "Connected" : "Connecting...";
+        boolean pdead = Plan.dead(this);
+        String st = pdead ? "Plan expired" : expired ? "Disconnected" : alive ? "Connected" : "Connecting...";
+        Plan.refresh(this, null);
         long ts = Math.max(sp.getLong("svc_ok", 0), sp.getLong("cashier_ok_ts", 0));
         box.addView(kv("Account", "Google Pay Business"));
         box.addView(kv("Status", st));
         box.addView(kv("Last checked", ts == 0 ? "-" : new SimpleDateFormat("dd MMM, h:mm a", Locale.US).format(new Date(ts))));
-        TextView note = tv("Payments are verified from your Google Pay for Business dashboard. Keep this phone online.", 12, MUTED, false);
+        int dl = Plan.daysLeft(this);
+        if (Plan.has(this)) {
+            String pd = new SimpleDateFormat("dd MMM yyyy", Locale.US).format(new Date(Plan.expTs(this) * 1000L));
+            box.addView(kv("Plan", pdead ? "Expired " + pd : "Valid till " + pd));
+            box.addView(kv("Remaining", pdead ? "0 days" : dl == 0 ? "Ends today" : dl + (dl == 1 ? " day" : " days")));
+        } else if (Plan.life(this)) {
+            box.addView(kv("Plan", "No expiry"));
+        } else {
+            box.addView(kv("Plan", "Checking..."));
+        }
+        TextView note = tv(pdead ? "Your plan has expired. Auto verify is paused until you renew." : "Payments are verified from your Google Pay for Business dashboard. Keep this phone online.", 12, pdead ? RED : MUTED, false);
         note.setPadding(0, dp(10), 0, dp(4));
         box.addView(note);
-        TextView again = dlgBtn("Sign in again", true, PRIMARY);
+        if (pdead || (dl >= 0 && dl <= 7)) {
+            TextView rn = dlgBtn("Renew plan", true, PRIMARY);
+            rn.setOnClickListener(v -> { d.dismiss(); openRenew(); });
+            box.addView(rn);
+        }
+        TextView again = dlgBtn("Sign in again", !(pdead || (dl >= 0 && dl <= 7)), PRIMARY);
         again.setOnClickListener(v -> { d.dismiss(); startLogin(); });
         box.addView(again);
         TextView rm = dlgBtn("Remove cashier", false, RED);
