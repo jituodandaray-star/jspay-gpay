@@ -100,9 +100,11 @@ public class DashActivity extends Activity {
     /** Background service ko zinda rakho. Start request sirf tab jab service sach mein band lage. */
     void watchdog() {
         try {
-            if (sp.getString("cashier_url", "").isEmpty()) return;
+            boolean hasCash = !sp.getString("cashier_url", "").isEmpty();
+            if (!hasCash && sp.getString("secret", "").length() < 5) return;
             long now = System.currentTimeMillis();
-            if (now - sp.getLong("svc_ok", 0) > 120000L && now - lastKick > 150000L) {
+            long okAt = hasCash ? sp.getLong("svc_ok", 0) : sp.getLong("feed_ok", 0);
+            if (now - okAt > 120000L && now - lastKick > 150000L) {
                 lastKick = now;
                 DashService.stop(this);
                 DashService.ensure(this, true);
@@ -733,7 +735,7 @@ public class DashActivity extends Activity {
         if (cs.equals("Connected") && Plan.has(this)) cs = "Connected  \u2022  plan till " + new SimpleDateFormat("dd MMM", Locale.US).format(new Date(Plan.expTs(this) * 1000L));
         list.addView(profRow("shield", "Cashier details", cs, () -> { if (sp.getString("cashier_url", "").isEmpty()) askCode(); else showCashier(); }));
         list.addView(profRow("vol", "Voice alerts", "Sound and language", () -> openPage("voice")));
-        list.addView(profSwitch("vol", "Announce other apps", "PhonePe, Paytm and more. Voice only.", "voice_other"));
+        list.addView(profSwitch("vol", "Announce other apps", "PhonePe, Paytm, FamPay and all server deposits.", "voice_other"));
         list.addView(profRow("rup", "Connect BharatPe", "Same server code", () -> openPage("bharat")));
         list.addView(profRow("hist", "Payment history", "All payments", () -> openPage("history")));
         list.addView(profRow("batt", "Advanced settings", "Notification access, battery, pop-up", () -> openPage("setup")));

@@ -142,9 +142,23 @@ public class NotifService extends NotificationListenerService {
         } catch (Exception ignored) { }
     }
 
+    static String lastClaimAmt = "";
+    static long lastClaimAt = 0;
+
+    /** Ek hi amount ki awaaz do raaste (server feed + phone notification) se na bole: pehla jeetta hai. */
+    static synchronized boolean claimAmount(String amt) {
+        String k;
+        try { k = String.valueOf(Math.round(Double.parseDouble(amt.replace(",", "")) * 100)); } catch (Exception e) { k = amt; }
+        long now = System.currentTimeMillis();
+        if (k.equals(lastClaimAmt) && now - lastClaimAt < 90000L) return false;
+        lastClaimAmt = k;
+        lastClaimAt = now;
+        return true;
+    }
+
     static String lastOtherKey = "";
     static long lastOtherAt = 0;
-    static final String[] OTHER_APPS = {"phonepe", "paytm", "one97", "npci", "bhim", "mobikwik", "freecharge", "fampay", "amazon.mshop", "telegram"};
+    static final String[] OTHER_APPS = {"phonepe", "paytm", "one97", "npci", "bhim", "mobikwik", "freecharge", "fampay", "amazon.mshop"};
 
     /** PhonePe, Paytm jaise dusre UPI apps: sirf awaaz, server ko kuch nahi bhejna. */
     private void otherApp(StatusBarNotification sbn, String pkg) {
@@ -185,6 +199,7 @@ public class NotifService extends NotificationListenerService {
                 lastOtherKey = key;
                 lastOtherAt = now;
             }
+            if (!claimAmount(amount)) return;
             String app = "";
             try { app = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0))); } catch (Exception ignored) { }
             speak(tg ? "deposit" : "other", amount, app, "gp");

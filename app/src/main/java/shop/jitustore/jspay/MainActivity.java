@@ -723,7 +723,7 @@ static final int MUTED = Color.parseColor("#6B6890");
 
         LinearLayout co = card();
         co.addView(text("OTHER UPI APPS", 11, MUTED, true));
-        co.addView(toggleRow("vol", "Announce other apps", "Speak the amount when PhonePe, Paytm or other UPI apps receive money", "voice_other"));
+        co.addView(toggleRow("vol", "Announce other apps", "Speak every deposit that reaches your account from PhonePe, Paytm, FamPay and other gateways", "voice_other"));
         TextView coNote = text("Voice only. These payments are not verified and do not change any order. Needs Notification Access.", 12, MUTED, false);
         coNote.setPadding(0, dp(10), 0, 0);
         co.addView(coNote);
@@ -1478,7 +1478,7 @@ static final int MUTED = Color.parseColor("#6B6890");
         LinearLayout tc = card();
         tc.addView(text("AUTO AND ALERTS", 11, MUTED, true));
         tc.addView(toggleRow("power", "Start on phone boot", "No need to open the app after restart", "autostart"));
-        tc.addView(toggleRow("vol", "Announce other apps", "Speak amounts from PhonePe, Paytm and other UPI apps", "voice_other"));
+        tc.addView(toggleRow("vol", "Announce other apps", "Speak every deposit from PhonePe, Paytm, FamPay and other gateways", "voice_other"));
         tc.addView(toggleRow("bell", "Pop-up alert", "Pop-up on screen when a payment arrives", "pop_on"));
         setupBox.addView(tc);
         setupBox.addView(button("Open pop-up settings", false, v -> {

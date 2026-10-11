@@ -13,6 +13,12 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.media.AudioAttributes;
+import android.speech.tts.TextToSpeech;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -41,6 +47,9 @@ public class DashService extends Service {
     private boolean warned = false;
 
     static long lastEnsure = 0;
+    private TextToSpeech tts;
+    private boolean ttsReady = false, feeding = false;
+    private final ArrayList<String[]> pendSay = new ArrayList<>();
 
     static void ensure(Context c) { ensure(c, false); }
 
@@ -49,10 +58,10 @@ public class DashService extends Service {
         SharedPreferences sp = null;
         try {
             sp = c.getSharedPreferences("c", Context.MODE_PRIVATE);
-            if (sp.getString("cashier_url", "").isEmpty()) return;
+            if (sp.getString("cashier_url", "").isEmpty() && sp.getString("secret", "").length() < 5) return;
             long now = System.currentTimeMillis();
             if (!force) {
-                if (now - sp.getLong("svc_ok", 0) < 60000L) return;   // chal rahi hai: dobara start request nahi
+                if (now - Math.max(sp.getLong("svc_ok", 0), sp.getLong("feed_ok", 0)) < 60000L) return;   // chal rahi hai: dobara start request nahi
                 if (now - lastEnsure < 20000L) return;
             }
             lastEnsure = now;
@@ -122,8 +131,9 @@ public class DashService extends Service {
                 ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).createNotificationChannel(ch);
             }
             Notification.Builder nb = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH) : new Notification.Builder(this);
-            nb.setContentTitle("JS PAY Cashier connected")
-              .setContentText("Verifying payments from your Google dashboard")
+            boolean noCashier = getSharedPreferences("c", MODE_PRIVATE).getString("cashier_url", "").isEmpty();
+            nb.setContentTitle(noCashier ? "JS PAY is listening" : "JS PAY Cashier connected")
+              .setContentText(noCashier ? "Announcing deposits to your account" : "Verifying payments from your Google dashboard")
               .setSmallIcon(android.R.drawable.stat_notify_sync)
               .setOngoing(true);
             PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, DashActivity.class),
@@ -141,8 +151,9 @@ public class DashService extends Service {
     private void start() {
         sp = getSharedPreferences("c", MODE_PRIVATE);
         String url = sp.getString("cashier_url", "");
-        if (url.isEmpty()) { stopSelf(); return; }
+        if (url.isEmpty() && sp.getString("secret", "").length() < 5) { stopSelf(); return; }
         running = true;
+        initTts();
         stage("starting webview");
         h = new Handler(Looper.getMainLooper());
         try {
@@ -151,7 +162,7 @@ public class DashService extends Service {
             wl.setReferenceCounted(false);
             wl.acquire();
         } catch (Exception ignored) { }
-        try {
+        if (!url.isEmpty()) try {
             web = new WebView(getApplicationContext());
             WebSettings ws = web.getSettings();
             ws.setJavaScriptEnabled(true);
@@ -203,16 +214,19 @@ public class DashService extends Service {
             tick++;
             sp.edit().putInt("svc_tick", tick).apply();
             try {
-                web.onResume();
-                web.resumeTimers();
-                if (tick % 45 == 2 && !sp.getString("cashier_state", "ok").equals("expired")) Plan.refresh(DashService.this, null);   // ~90 sec heartbeat + plan date
-                if (tick % 3 == 0) { loadedAt = 0; web.reload(); }   // ~6 sec
-                else if (loadedAt > 0 && System.currentTimeMillis() - loadedAt > 1500) {
-                    web.evaluateJavascript("(function(){return document.body?document.body.innerText:''})()", val -> {
-                        try { onText(DashActivity.unquote(val)); } catch (Exception ignored) { }
-                    });
+                if (tick % 45 == 2 && web != null && !sp.getString("cashier_state", "ok").equals("expired")) Plan.refresh(DashService.this, null);   // ~90 sec heartbeat + plan date
+                if (web != null) {
+                    web.onResume();
+                    web.resumeTimers();
+                    if (tick % 3 == 0) { loadedAt = 0; web.reload(); }   // ~6 sec
+                    else if (loadedAt > 0 && System.currentTimeMillis() - loadedAt > 1500) {
+                        web.evaluateJavascript("(function(){return document.body?document.body.innerText:''})()", val -> {
+                            try { onText(DashActivity.unquote(val)); } catch (Exception ignored) { }
+                        });
+                    }
                 }
             } catch (Exception ignored) { }
+            if (tick % 3 == 1) pollFeed();
             h.postDelayed(this, 2000);
         }
     };
@@ -265,8 +279,106 @@ public class DashService extends Service {
         ed.apply();
     }
 
+    // ---------------------------------------------------------------- Server voice feed (Paytm, FamPay... koi bhi gateway)
+    private void initTts() {
+        if (tts != null) return;
+        try {
+            tts = new TextToSpeech(getApplicationContext(), status -> {
+                if (status == TextToSpeech.SUCCESS) {
+                    try {
+                        tts.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build());
+                    } catch (Exception ignored) { }
+                    synchronized (pendSay) {
+                        ttsReady = true;
+                        for (String[] p : pendSay) sayNow(p[0], p[1]);
+                        pendSay.clear();
+                    }
+                }
+            });
+        } catch (Exception ignored) { }
+    }
+
+    private void sayFeed(String amount, String src) {
+        if (!sp.getBoolean("voice_on", true) || !sp.getBoolean("voice_other", false)) return;
+        synchronized (pendSay) {
+            if (!ttsReady) { pendSay.add(new String[]{amount, src}); return; }
+        }
+        sayNow(amount, src);
+    }
+
+    private void sayNow(String amount, String src) {
+        try {
+            String lang = Voice.pick(tts, sp);
+            tts.speak(Voice.say("other", lang, amount, src, "gp"), TextToSpeech.QUEUE_ADD, null, "feed" + System.nanoTime());
+        } catch (Exception ignored) { }
+    }
+
+    private void pollFeed() {
+        if (feeding) return;
+        final String secret = sp.getString("secret", "");
+        if (secret.length() < 5) return;
+        feeding = true;
+        new Thread(() -> {
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(Sx.NOTIFY.replace("notify.php", "feed.php")).openConnection();
+                c.setRequestMethod("POST");
+                c.setConnectTimeout(10000);
+                c.setReadTimeout(10000);
+                c.setDoOutput(true);
+                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                c.getOutputStream().write(("secret=" + URLEncoder.encode(secret, "UTF-8")).getBytes("UTF-8"));
+                if (c.getResponseCode() == 200) {
+                    InputStream in = c.getInputStream();
+                    java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[2048];
+                    int n;
+                    while ((n = in.read(buf)) > 0 && bo.size() < 65536) bo.write(buf, 0, n);
+                    onFeed(bo.toString("UTF-8"));
+                }
+            } catch (Exception ignored) { }
+            feeding = false;
+        }).start();
+    }
+
+    private void onFeed(String body) {
+        try {
+            org.json.JSONObject j = new org.json.JSONObject(body);
+            if (!"ok".equals(j.optString("status"))) return;
+            sp.edit().putLong("feed_ok", System.currentTimeMillis()).apply();
+            org.json.JSONArray a = j.optJSONArray("items");
+            if (a == null) return;
+            boolean base = sp.getBoolean("feed_base", false);
+            String seen = sp.getString("feed_seen", "");
+            StringBuilder add = new StringBuilder();
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < a.length(); i++) {
+                org.json.JSONObject it = a.getJSONObject(i);
+                String id = it.optString("id");
+                if (id.isEmpty() || seen.contains("|" + id + "|") || add.indexOf("|" + id + "|") >= 0) continue;
+                add.append("|").append(id).append("|");
+                if (!base) continue;                                   // pehli baar: purani payments chup-chaap yaad rakho
+                String amt = it.optString("amount");
+                String src = it.optString("src");
+                long ts = it.optLong("ts") * 1000L;
+                if (ts > 0 && now - ts > 15 * 60000L) continue;         // bahut purani: mat bolo
+                if (!NotifService.claimAmount(amt)) continue;           // usi amount ki awaaz abhi bol di gayi (dusre rasta se)
+                sayFeed(amt, src);
+            }
+            SharedPreferences.Editor ed = sp.edit();
+            if (!base) ed.putBoolean("feed_base", true);
+            if (add.length() > 0) {
+                String all = add + seen;
+                if (all.length() > 6000) all = all.substring(0, 6000);
+                ed.putString("feed_seen", all);
+            }
+            ed.apply();
+        } catch (Exception ignored) { }
+    }
+
     @Override
     public void onDestroy() {
+        try { if (tts != null) { tts.stop(); tts.shutdown(); } } catch (Exception ignored) { }
         running = false;
         try { if (h != null) h.removeCallbacksAndMessages(null); } catch (Exception ignored) { }
         try { if (web != null) web.destroy(); } catch (Exception ignored) { }
