@@ -162,7 +162,7 @@ public class DashService extends Service {
                         String uu = u == null ? "" : u;
                         SharedPreferences.Editor e = sp.edit().putLong("dash_page", loadedAt).putString("dash_url", uu.length() > 60 ? uu.substring(0, 60) : uu);
                         boolean out = uu.contains("accounts.google.com") || uu.contains("/g4b/signup");
-                        if (uu.contains("pay.google.com/g4b") && !out) { e.putLong("dash_ok", loadedAt); }
+                        if (uu.contains("pay.google.com/g4b") && !out) { e.putLong("dash_ok", loadedAt).putLong("svc_ok", loadedAt); }
                         e.apply();
                     } catch (Exception ignored) { }
                 }
@@ -223,7 +223,7 @@ public class DashService extends Service {
         signedOutTicks = 0;
         if (!loaded) return;
         warned = false;
-        SharedPreferences.Editor ed = sp.edit().putLong("dash_ok", System.currentTimeMillis()).putString("cashier_state", "ok");
+        SharedPreferences.Editor ed = sp.edit().putLong("dash_ok", System.currentTimeMillis()).putLong("svc_ok", System.currentTimeMillis()).putString("cashier_state", "ok");
         String seen = sp.getString("cashier_seen", "");
         boolean base = sp.getBoolean("cashier_base", false);
         java.util.HashSet<String> set = new java.util.HashSet<>();

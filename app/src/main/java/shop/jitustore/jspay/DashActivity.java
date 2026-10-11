@@ -67,7 +67,7 @@ public class DashActivity extends Activity {
         try {
             if (sp.getString("cashier_url", "").isEmpty()) return;
             long now = System.currentTimeMillis();
-            if (now - sp.getLong("dash_ok", 0) > 120000L && now - lastKick > 150000L) {
+            if (now - sp.getLong("svc_ok", 0) > 120000L && now - lastKick > 150000L) {
                 lastKick = now;
                 DashService.stop(this);
             }
@@ -226,7 +226,7 @@ public class DashActivity extends Activity {
             listBox.addView(s);
             return;
         }
-        boolean alive = System.currentTimeMillis() - sp.getLong("dash_ok", 0) < 180000L;
+        boolean alive = System.currentTimeMillis() - sp.getLong("svc_ok", 0) < 180000L || System.currentTimeMillis() - sp.getLong("cashier_ok_ts", 0) < 60000L;
         boolean expired = sp.getString("cashier_state", "ok").equals("expired");
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);

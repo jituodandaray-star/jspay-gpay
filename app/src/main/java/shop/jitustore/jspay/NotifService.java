@@ -113,7 +113,7 @@ public class NotifService extends NotificationListenerService {
             String pkg = sbn.getPackageName();
             if (!pkg.startsWith("com.google.android.apps.nbu.paisa") && !pkg.toLowerCase().contains("bharatpe")) return;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
-            if (System.currentTimeMillis() - sp.getLong("dash_ok", 0) < 90000L) return; // Cashier (Google dashboard) abhi chal raha hai: wahi bhejega
+            if (System.currentTimeMillis() - sp.getLong("svc_ok", 0) < 90000L) return; // Cashier (Google dashboard) abhi chal raha hai: wahi bhejega
             final String secret = sp.getString("secret", "");
             if (secret.length() < 5) return;
             Notification n = sbn.getNotification();
