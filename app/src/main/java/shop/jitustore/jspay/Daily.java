@@ -59,9 +59,9 @@ public class Daily extends BroadcastReceiver {
                         n++;
                     }
                 }
-                String txt = n == 0 ? "Aaj koi payment nahi aayi."
+                String txt = n == 0 ? "No payments today."
                         : "GPay ₹" + fmt(gp) + " · BharatPe ₹" + fmt(bp) + " · " + n + " payments";
-                Notifier.summary(c, "Aaj ₹" + fmt(gp + bp) + " aaye", txt);
+                Notifier.summary(c, "Today ₹" + fmt(gp + bp), txt);
             }
         } catch (Exception ignored) { }
         schedule(c);

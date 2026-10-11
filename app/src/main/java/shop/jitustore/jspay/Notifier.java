@@ -42,13 +42,13 @@ final class Notifier {
             a.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             nm.createNotificationChannel(a);
             NotificationChannel w = new NotificationChannel(CH_WARN, "Chetavni (pop-up)", NotificationManager.IMPORTANCE_HIGH);
-            w.setDescription("Galat amount, internet band, premium khatam");
+            w.setDescription("Wrong amount, internet off, premium expired");
             w.enableVibration(true);
             w.setSound(null, null);
             w.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             nm.createNotificationChannel(w);
             NotificationChannel d = new NotificationChannel(CH_SUM, "Daily summary", NotificationManager.IMPORTANCE_DEFAULT);
-            d.setDescription("Raat 10 baje aaj ka hisaab");
+            d.setDescription("Daily summary");
             nm.createNotificationChannel(d);
         } catch (Exception ignored) { }
     }
@@ -149,7 +149,7 @@ final class Notifier {
         x.setWhen(System.currentTimeMillis());
         post(c, 100 + (int) (System.currentTimeMillis() % 100000L), x.build());
         Notification.Builder g = base(c, CH_PAY);
-        g.setContentTitle("JS PAY").setContentText("Naye payments aaye").setGroup(GROUP).setGroupSummary(true);
+        g.setContentTitle("JS PAY").setContentText("New payments received").setGroup(GROUP).setGroupSummary(true);
         if (Build.VERSION.SDK_INT >= 26) g.setGroupAlertBehavior(Notification.GROUP_ALERT_CHILDREN);
         post(c, 1, g.build());
     }

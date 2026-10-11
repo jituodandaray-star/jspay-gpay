@@ -209,12 +209,12 @@ public class NotifService extends NotificationListenerService {
             if (code != 200) {
                 speak("failed", amount, exp, gw);
                 MainActivity.popup("failed", amount, gw, who, exp);
-                Notifier.warn(this, 21, online(this) ? "Server tak nahi pahunchi" : "Internet band hai", "\u20B9" + amount + " ki payment verify nahi hui. Internet check karo.");
+                Notifier.warn(this, 21, online(this) ? "Not sent to server" : "Internet is off", "\u20B9" + amount + " payment was not verified. Check your internet.");
             }
             else if (res.equals("paid")) { speak("paid", amount, exp, gw); MainActivity.popup("paid", amount, gw, who, exp); Notifier.pay(this, amount, gw, who); }
-            else if (res.equals("wrong")) { speak("wrong", amount, exp, gw); MainActivity.popup("wrong", amount, gw, who, exp); Notifier.warn(this, 22, "Galat amount \u00B7 " + Notifier.gwName(gw), "\u20B9" + amount + " aaye, order \u20B9" + exp + " ka tha"); }
-            else if (res.equals("no_order")) { speak("noorder", amount, exp, gw); MainActivity.popup("noorder", amount, gw, who, exp); Notifier.warn(this, 23, "Bina order ka paisa \u00B7 " + Notifier.gwName(gw), "\u20B9" + amount + " aaye, par koi order nahi tha"); }
-            else if (res.equals("expired")) { Plan.markExpired(this); speak("expired", amount, exp, gw); MainActivity.popup("expired", amount, gw, who, exp); Notifier.warn(this, 24, "Premium khatam", "Payment verify nahi hui. Renew karo."); }
+            else if (res.equals("wrong")) { speak("wrong", amount, exp, gw); MainActivity.popup("wrong", amount, gw, who, exp); Notifier.warn(this, 22, "Wrong amount \u00B7 " + Notifier.gwName(gw), "\u20B9" + amount + " received, order was \u20B9" + exp); }
+            else if (res.equals("no_order")) { speak("noorder", amount, exp, gw); MainActivity.popup("noorder", amount, gw, who, exp); Notifier.warn(this, 23, "Payment without order \u00B7 " + Notifier.gwName(gw), "\u20B9" + amount + " received, but there was no order"); }
+            else if (res.equals("expired")) { Plan.markExpired(this); speak("expired", amount, exp, gw); MainActivity.popup("expired", amount, gw, who, exp); Notifier.warn(this, 24, "Premium expired", "Payment was not verified. Please renew."); }
             else if (!res.equals("duplicate") && !res.equals("ignored")) speak("plain", amount, exp, gw);
             String line = ts + "|" + code + "|" + amount + "|" + sum + "|" + res + "|" + exp;
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);

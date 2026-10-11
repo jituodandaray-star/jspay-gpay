@@ -524,7 +524,7 @@ public class MainActivity extends Activity {
         }
         frame.addView(buildLock(), new FrameLayout.LayoutParams(-1, -1));
         setContentView(frame);
-        if (details) { jumpTo("menu"); }
+        if (details) { jumpTo("menu"); } else { sv.setVisibility(View.INVISIBLE); }
         try {
             ttsT = new TextToSpeech(getApplicationContext(), st2 -> { ttsTReady = (st2 == TextToSpeech.SUCCESS); });
         } catch (Exception ignored) { }
@@ -648,7 +648,7 @@ public class MainActivity extends Activity {
         names.setOrientation(LinearLayout.VERTICAL);
         names.setPadding(dp(14), 0, 0, 0);
         names.addView(text("Voice Alert", 22, TXT, true));
-        names.addView(text("Awaaz settings", 13, MUTED, false));
+        names.addView(text("Sound settings", 13, MUTED, false));
         head.addView(names, new LinearLayout.LayoutParams(0, -2, 1f));
         r2.addView(head);
 
@@ -693,13 +693,13 @@ public class MainActivity extends Activity {
         s1b.addView(sp3, new LinearLayout.LayoutParams(0, 1, 1f));
         c1.addView(s1b);
 
-        TextView l2 = text("KAB BOLE", 11, MUTED, true);
+        TextView l2 = text("WHEN TO SPEAK", 11, MUTED, true);
         l2.setPadding(0, dp(14), 0, dp(6));
         c1.addView(l2);
         LinearLayout s2r = new LinearLayout(this);
         s2r.setOrientation(LinearLayout.HORIZONTAL);
-        vAll = seg("Har payment", v -> setMode("all"));
-        vWarn = seg("Sirf warning", v -> setMode("warn"));
+        vAll = seg("Every payment", v -> setMode("all"));
+        vWarn = seg("Warnings only", v -> setMode("warn"));
         for (TextView t : new TextView[]{vAll, vWarn}) {
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
             p.rightMargin = dp(6);
@@ -715,7 +715,7 @@ public class MainActivity extends Activity {
         r2.addView(c1);
 
         LinearLayout c2 = card();
-        c2.addView(text("AISA BOLEGA", 11, MUTED, true));
+        c2.addView(text("SAMPLE", 11, MUTED, true));
         vSample1 = text("", 13, Color.parseColor("#C7D2FE"), false);
         vSample2 = text("", 13, Color.parseColor("#FECACA"), false);
         vSample3 = text("", 13, Color.parseColor("#FECACA"), false);
@@ -731,14 +731,14 @@ public class MainActivity extends Activity {
         r2.addView(c2);
 
         LinearLayout c3 = card();
-        c3.addView(text("AWAAZ CHUNO", 11, MUTED, true));
-        TextView vh = text("Hindi mein Hindi Awaaz 7 aur English mein English Awaaz 3 bolegi. Dabao to sunayi degi.", 12, MUTED, false);
+        c3.addView(text("CHOOSE VOICE", 11, MUTED, true));
+        TextView vh = text("Hindi voice speaks Hindi alerts and English voice speaks English alerts. Tap to hear a sample.", 12, MUTED, false);
         vh.setPadding(0, dp(6), 0, dp(4));
         c3.addView(vh);
         vListBox = new LinearLayout(this);
         vListBox.setOrientation(LinearLayout.VERTICAL);
         c3.addView(vListBox);
-        c3.addView(button("Phone ki awaaz settings kholo", false, v -> {
+        c3.addView(button("Open phone voice settings", false, v -> {
             try { startActivity(new Intent("com.android.settings.TTS_SETTINGS")); }
             catch (Exception e) { try { startActivity(new Intent(Settings.ACTION_SETTINGS)); } catch (Exception ignored) { } }
         }));
@@ -769,7 +769,7 @@ public class MainActivity extends Activity {
         if (vListBox == null) return;
         vListBox.removeAllViews();
         if (ttsT == null || !ttsTReady) {
-            TextView w = text("Awaaz engine tayyar ho raha hai\u2026", 13, MUTED, false);
+            TextView w = text("Voice engine is getting ready\u2026", 13, MUTED, false);
             w.setPadding(0, dp(10), 0, dp(6));
             vListBox.addView(w);
             if (voiceTries++ < 8) vListBox.postDelayed(() -> renderVoiceList(), 1200);
@@ -795,7 +795,7 @@ public class MainActivity extends Activity {
                 int idx = 0;
                 for (int i = 0; i < list.size(); i++) if (list.get(i).getName().equals(cur)) { sel = list.get(i); idx = i + 1; }
                 if (sel == null) continue;
-                vListBox.addView(voiceRow(vlName(lgs[k]) + " \u00B7 Awaaz " + idx, voiceInfo(sel) + " \u00B7 sunne ke liye dabao", true, sel, lgs[k]));
+                vListBox.addView(voiceRow(vlName(lgs[k]) + " \u00B7 Voice " + idx, voiceInfo(sel) + " \u00B7 tap to listen", true, sel, lgs[k]));
             }
         } catch (Exception ignored) { }
     }
@@ -885,9 +885,9 @@ public class MainActivity extends Activity {
             String lang = Voice.pick(ttsT, sp);
             String pf = sp.getString("voice_lang", "auto");
             if (lang.equals("en") && !pf.equals("en")) {
-                Toast.makeText(this, "Is bhasha ki awaaz phone mein nahi mili. English use ho rahi hai.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "This language voice was not found on the phone. Using English.", Toast.LENGTH_LONG).show();
             } else if (lang.equals("od")) {
-                Toast.makeText(this, "Odia awaaz phone mein nahi hai. Hindi awaaz se Odia bolegi.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Odia voice is not on the phone. Hindi voice will be used.", Toast.LENGTH_LONG).show();
             }
             ttsT.speak(Voice.say("paid", lang, "26", ""), TextToSpeech.QUEUE_FLUSH, null, "test1");
             ttsT.speak(Voice.say("wrong", lang, "2", "500"), TextToSpeech.QUEUE_ADD, null, "test2");
@@ -926,8 +926,8 @@ public class MainActivity extends Activity {
             hidePopup();
             boolean good = kind.equals("paid") || kind.equals("plain");
             int main = Color.parseColor(good ? "#16A34A" : "#DC2626");
-            String label = kind.equals("wrong") ? "Galat Amount" : kind.equals("noorder") ? "Bina Order Ka Paisa" : kind.equals("expired") ? "Premium Khatam" : kind.equals("failed") ? "Server Tak Nahi Pahunchi" : "Payment Received";
-            String sub = good ? (who == null ? "" : who) : kind.equals("wrong") ? "Order \u20B9" + exp + " ka tha" : kind.equals("noorder") ? "Koi order nahi tha" : kind.equals("expired") ? "Renew karo" : "Internet check karo";
+            String label = kind.equals("wrong") ? "Wrong Amount" : kind.equals("noorder") ? "Payment Without Order" : kind.equals("expired") ? "Premium Expired" : kind.equals("failed") ? "Not Sent To Server" : "Payment Received";
+            String sub = good ? (who == null ? "" : who) : kind.equals("wrong") ? "Order was \u20B9" + exp : kind.equals("noorder") ? "No order found" : kind.equals("expired") ? "Please renew" : "Check your internet";
             String amt = (amount == null || amount.isEmpty()) ? "" : "\u20B9" + Notifier.money(amount);
             final FrameLayout ov = new FrameLayout(this);
             ov.setBackgroundColor(Color.parseColor("#B8050814"));
@@ -971,7 +971,7 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams brp = new LinearLayout.LayoutParams(-1, dp(5));
             brp.topMargin = dp(18);
             card.addView(bar, brp);
-            TextView sm = text("3 second mein band ho jayega", 11, Color.parseColor("#94A3B8"), false);
+            TextView sm = text("Closes in 3 seconds", 11, Color.parseColor("#94A3B8"), false);
             sm.setGravity(Gravity.CENTER);
             sm.setPadding(0, dp(6), 0, 0);
             card.addView(sm);
@@ -1063,7 +1063,7 @@ public class MainActivity extends Activity {
         it.addView(text("›", 24, PRIMARY, true));
         it.setOnClickListener(v -> { if (target.equals("dash")) {
                 try { startActivity(new Intent(this, DashActivity.class)); }
-                catch (Exception e) { Toast.makeText(this, "Dashboard file adhoori hai: AndroidManifest.xml bhi upload karo (app/src/main mein)", Toast.LENGTH_LONG).show(); }
+                catch (Exception e) { Toast.makeText(this, "Could not open. Please reinstall the app.", Toast.LENGTH_LONG).show(); }
             } else go(target); });
         press(it);
         return it;
@@ -1121,11 +1121,26 @@ public class MainActivity extends Activity {
         t2.setLineSpacing(0, 1.15f);
         c2.addView(t2);
         o[0].addView(c2);
+        LinearLayout c3 = card();
+        c3.setBackground(box(Color.parseColor("#2A1D0A"), 18, Color.parseColor("#D97706")));
+        c3.addView(text("IMPORTANT NOTICE", 11, Color.parseColor("#FBBF24"), true));
+        TextView t3 = text("BharatPe is verified from phone notifications. A notification is not a bank record: it can be fake, repeated, delayed or missed, and it stops working if Notification Access, battery permission or internet is turned off.\n\nIf you choose to use BharatPe with JS PAY, you accept this risk. JS PAY and its owner are not responsible for any loss, wrong order approval or missed payment caused by BharatPe notifications. Always check your bank or BharatPe balance for important orders.", 13, TXT, false);
+        t3.setPadding(0, dp(8), 0, 0);
+        t3.setLineSpacing(0, 1.12f);
+        c3.addView(t3);
+        o[0].addView(c3);
+        LinearLayout c4 = card();
+        c4.addView(text("WHY GOOGLE PAY CASHIER IS BETTER", 11, MUTED, true));
+        TextView t4 = text("- Reads the real UPI transaction ID from your own Google Pay for Business dashboard.\n- Fake or repeated notifications cannot approve an order.\n- No Notification Access needed.\n- Fully automatic after one sign-in.\n- Every payment is matched once, even if Google repeats it.\n\nKeep the phone online. If your Google sign-in expires, the app tells you to sign in again.", 13, TXT, false);
+        t4.setPadding(0, dp(8), 0, 0);
+        t4.setLineSpacing(0, 1.12f);
+        c4.addView(t4);
+        o[0].addView(c4);
         bharatState = text("", 14, MUTED, true);
         bharatState.setPadding(dp(4), dp(16), 0, 0);
         o[0].addView(bharatState);
         o[0].addView(button("Notification Access", true, v -> { try { startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); } catch (Exception e) { } }));
-        o[0].addView(button("Allow background use", false, v -> fixBattery()));
+        o[0].addView(button("Allow background use", true, v -> fixBattery()));
         return s;
     }
 
@@ -1138,7 +1153,7 @@ public class MainActivity extends Activity {
 
     ScrollView buildToday() {
         LinearLayout[] o = new LinearLayout[1];
-        ScrollView s = mkPage("₹", "Aaj ka Hisaab", "Aaj ki payments", o);
+        ScrollView s = mkPage("₹", "Today's Deposit", "Payments received today", o);
         todayBox = new LinearLayout(this);
         todayBox.setOrientation(LinearLayout.VERTICAL);
         o[0].addView(todayBox);
@@ -1147,13 +1162,13 @@ public class MainActivity extends Activity {
 
     ScrollView buildHistoryPage() {
         LinearLayout[] o = new LinearLayout[1];
-        ScrollView s = mkPage("H", "Payment History", "Aakhri 50", o);
+        ScrollView s = mkPage("H", "Payment History", "Last 50", o);
         LinearLayout fr = new LinearLayout(this);
         fr.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(-1, -2);
         flp.topMargin = dp(14);
         fr.setLayoutParams(flp);
-        hfAll = seg("Sab", v -> { histFilter = "all"; renderHistoryPage(); });
+        hfAll = seg("All", v -> { histFilter = "all"; renderHistoryPage(); });
         hfPaid = seg("Paid", v -> { histFilter = "paid"; renderHistoryPage(); });
         hfWarn = seg("Warning", v -> { histFilter = "warn"; renderHistoryPage(); });
         for (TextView t : new TextView[]{hfAll, hfPaid, hfWarn}) {
@@ -1173,7 +1188,7 @@ public class MainActivity extends Activity {
 
     ScrollView buildSetupPage() {
         LinearLayout[] o = new LinearLayout[1];
-        ScrollView s = mkPage("S", "Setup Check", "Sab theek hai ya nahi", o);
+        ScrollView s = mkPage("S", "Setup Check", "Is everything ON?", o);
         setupBox = new LinearLayout(this);
         setupBox.setOrientation(LinearLayout.VERTICAL);
         o[0].addView(setupBox);
@@ -1237,7 +1252,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(-1, -2);
         flp.topMargin = dp(14);
         fr.setLayoutParams(flp);
-        out[0] = seg("Sab Gateway", v -> { gwFilter = "all"; redraw.run(); });
+        out[0] = seg("All Gateways", v -> { gwFilter = "all"; redraw.run(); });
         out[1] = seg("GPay", v -> { gwFilter = "gp"; redraw.run(); });
         out[2] = seg("BharatPe", v -> { gwFilter = "bp"; redraw.run(); });
         for (TextView t : out) {
@@ -1279,9 +1294,9 @@ public class MainActivity extends Activity {
         r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
         TextView c = chip();
         if (paid) { c.setText("✓ Order PAID"); c.setBackground(box(GOOD, 20, 0)); }
-        else if (kind.equals("wrong")) { c.setText("✕ Galat amount"); c.setBackground(box(BAD, 20, 0)); }
-        else if (kind.equals("noorder")) { c.setText("✕ Bina order"); c.setBackground(box(BAD, 20, 0)); }
-        else if (kind.equals("expired")) { c.setText("✕ Premium khatam"); c.setBackground(box(BAD, 20, 0)); }
+        else if (kind.equals("wrong")) { c.setText("✕ Wrong amount"); c.setBackground(box(BAD, 20, 0)); }
+        else if (kind.equals("noorder")) { c.setText("✕ No order"); c.setBackground(box(BAD, 20, 0)); }
+        else if (kind.equals("expired")) { c.setText("✕ Premium expired"); c.setBackground(box(BAD, 20, 0)); }
         else if (kind.equals("failed")) { c.setText("✕ Failed"); c.setBackground(box(BAD, 20, 0)); }
         else { c.setText("✓ Sent"); c.setBackground(box(GOOD, 20, 0)); }
         r.addView(c);
@@ -1297,11 +1312,11 @@ public class MainActivity extends Activity {
         card.setPadding(dp(12), dp(8), dp(12), dp(10));
         card.setBackground(box(bad ? Color.parseColor("#26DC2626") : Color.parseColor("#2616A34A"), 14, bad ? BAD : GOOD));
         card.addView(r);
-        String note = paid ? "Order mil gaya. Paisa credit ho gaya."
-                : kind.equals("wrong") ? "Order ₹" + f[5] + " ka tha, ₹" + f[2] + " aaya. Credit nahi hoga."
-                : kind.equals("noorder") ? "Koi order nahi tha. Credit nahi hoga."
-                : kind.equals("expired") ? "Premium khatam. Renew karo, tab payment verify hogi."
-                : "Server tak nahi pahunchi.";
+        String note = paid ? "Order matched. Payment credited."
+                : kind.equals("wrong") ? "Order was ₹" + f[5] + ", received ₹" + f[2] + ". Not credited."
+                : kind.equals("noorder") ? "No order found. Not credited."
+                : kind.equals("expired") ? "Premium expired. Renew to verify payments."
+                : "Could not reach the server.";
         TextView nt = text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false);
         nt.setPadding(0, dp(6), 0, 0);
         card.addView(nt);
@@ -1354,11 +1369,11 @@ public class MainActivity extends Activity {
         todayBox.addView(gwRow(tg, () -> renderTodayPage()));
         paintGw(tg);
         LinearLayout big = card();
-        big.addView(text(gwFilter.equals("bp") ? "AAJ BHARATPE ME MILA" : gwFilter.equals("gp") ? "AAJ GPAY ME MILA" : "AAJ TOTAL MILA", 11, MUTED, true));
+        big.addView(text(gwFilter.equals("bp") ? "BHARATPE TODAY" : gwFilter.equals("gp") ? "GPAY TODAY" : "TOTAL TODAY", 11, MUTED, true));
         TextView t = text("₹" + money(total), 38, Color.parseColor("#34D399"), true);
         t.setPadding(0, dp(6), 0, dp(2));
         big.addView(t);
-        big.addView(text(lastTs > 0 ? "Aakhri payment: " + new SimpleDateFormat("hh:mm a", Locale.US).format(new Date(lastTs)) : "Aaj abhi koi payment nahi aayi", 13, MUTED, false));
+        big.addView(text(lastTs > 0 ? "Last payment: " + new SimpleDateFormat("hh:mm a", Locale.US).format(new Date(lastTs)) : "No payment received today", 13, MUTED, false));
         if (gwFilter.equals("all")) {
             TextView sp2 = text("GPay \u20B9" + money(gpTot) + "   \u00B7   BharatPe \u20B9" + money(bpTot), 14, TXT, true);
             sp2.setPadding(0, dp(8), 0, 0);
@@ -1371,7 +1386,7 @@ public class MainActivity extends Activity {
         slp.topMargin = dp(14);
         st.setLayoutParams(slp);
         LinearLayout b1 = statBox(String.valueOf(paid), "Paid", GOOD, Color.parseColor("#2616A34A"));
-        LinearLayout b2 = statBox(String.valueOf(warn), "Warning", BAD, Color.parseColor("#26DC2626"));
+        LinearLayout b2 = statBox(String.valueOf(warn), "Warnings", BAD, Color.parseColor("#26DC2626"));
         LinearLayout b3 = statBox(String.valueOf(today.size()), "Total", LINE, CARD);
         for (LinearLayout b : new LinearLayout[]{b1, b2, b3}) {
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, 1f);
@@ -1380,9 +1395,9 @@ public class MainActivity extends Activity {
         }
         todayBox.addView(st);
         LinearLayout lc = card();
-        lc.addView(text("AAJ KI PAYMENTS", 11, MUTED, true));
+        lc.addView(text("TODAY'S PAYMENTS", 11, MUTED, true));
         if (today.isEmpty()) {
-            TextView e = text("Aaj koi payment nahi aayi.", 13, MUTED, false);
+            TextView e = text("No payments today.", 13, MUTED, false);
             e.setPadding(0, dp(10), 0, 0);
             lc.addView(e);
         } else {
@@ -1411,7 +1426,7 @@ public class MainActivity extends Activity {
             histPageBox.addView(payItem(f));
         }
         if (n == 0) {
-            TextView e = text("Koi payment nahi mili.", 14, MUTED, false);
+            TextView e = text("No payments found.", 14, MUTED, false);
             e.setPadding(0, dp(18), 0, 0);
             histPageBox.addView(e);
         }
@@ -1446,32 +1461,31 @@ public class MainActivity extends Activity {
         c.addView(row("Voice engine", c5, null));
         setupBox.addView(c);
         LinearLayout tc = card();
-        tc.addView(text("AUTO AUR ALERT", 11, MUTED, true));
-        tc.addView(toggleRow("power", "Phone on hote hi chalu", "Restart ke baad app kholna nahi padega", "autostart"));
-        tc.addView(toggleRow("bell", "Pop-up alert", "Payment aate hi phone ke upar pop-up", "pop_on"));
-        tc.addView(toggleRow("moon", "Raat 10 baje summary", "Aaj ka total notification mein", "daily_on"));
+        tc.addView(text("AUTO AND ALERTS", 11, MUTED, true));
+        tc.addView(toggleRow("power", "Start on phone boot", "No need to open the app after restart", "autostart"));
+        tc.addView(toggleRow("bell", "Pop-up alert", "Pop-up on screen when a payment arrives", "pop_on"));
         setupBox.addView(tc);
-        setupBox.addView(button("Pop-up settings kholo", false, v -> {
+        setupBox.addView(button("Open pop-up settings", false, v -> {
             try {
                 Intent ni = Build.VERSION.SDK_INT >= 26 ? new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())
                         : new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
                 startActivity(ni);
             } catch (Exception ignored) { }
         }));
-        setupBox.addView(button("Popup dekho (test)", false, v -> showPopup("paid", "2", "bp", "Saumya Ranjan", "")));
+        setupBox.addView(button("Preview pop-up (test)", false, v -> showPopup("paid", "2", "bp", "Saumya Ranjan", "")));
         LinearLayout lc = card();
         lc.addView(text("AAKHRI SIGNAL", 11, MUTED, true));
         long last = sp.getLong("last", 0);
-        TextView lt = text(last > 0 ? new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(last)) + "  (server " + sp.getInt("code", 0) + ")" : "Abhi koi signal nahi", 14, TXT, false);
+        TextView lt = text(last > 0 ? new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(last)) + "  (server " + sp.getInt("code", 0) + ")" : "No signal yet", 14, TXT, false);
         lt.setPadding(0, dp(8), 0, 0);
         lc.addView(lt);
         setupBox.addView(lc);
         setupBox.addView(button("Check connection", true, v -> verify(sp.getString("secret", ""), false)));
-        setupBox.addView(button("Notification Access kholo", false, v -> startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))));
+        setupBox.addView(button("Open Notification Access", false, v -> startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))));
         String warn = "";
-        if (!access) warn = "Notification Access OFF hai. Payment detect nahi hogi. Upar 'Fix' dabao.";
-        else if (!batt) warn = "Battery / Background OFF hai. Phone band hone par payment miss ho sakti hai. 'Fix' dabao.";
-        else if (!net) warn = "Internet band hai. Payment server tak nahi pahunchegi.";
+        if (!access) warn = "Notification Access is OFF. Payments will not be detected. Tap Fix above.";
+        else if (!batt) warn = "Battery / Background is OFF. Payments may be missed. Tap Fix above.";
+        else if (!net) warn = "Internet is off. Payments cannot reach the server.";
         else if (!verified) warn = "Login Key daalo.";
         if (!warn.isEmpty()) {
             TextView w = text(warn, 13, Color.parseColor("#FECACA"), false);
@@ -1500,7 +1514,7 @@ public class MainActivity extends Activity {
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
         c.addView(kv("Version", "v1.19"));
-        c.addView(kv("Login Key", masked));
+        c.addView(kv("Cashier", sp.getString("cashier_url", "").isEmpty() ? "Not added" : "Added"));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
         aboutBox.addView(button("Open Panel", true, v -> startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Sx.PANEL)))));
@@ -1512,11 +1526,11 @@ public class MainActivity extends Activity {
             refresh();
         }));
         LinearLayout h = card();
-        h.addView(text("MADAD", 11, MUTED, true));
+        h.addView(text("HELP", 11, MUTED, true));
         String[][] qa = {
-            {"Payment nahi aa rahi?", "Setup Check kholo, sab ON hona chahiye."},
-            {"Awaaz nahi aa rahi?", "Media volume badhao aur Voice Alert ON rakho."},
-            {"Laal box kya hai?", "Galat amount ya bina order ki payment. Credit nahi hoga."}
+            {"Payment not detected?", "Open Setup Check. Everything should be ON."},
+            {"No sound?", "Increase media volume and keep Voice Alert ON."},
+            {"What is a red box?", "A wrong amount or a payment without an order. It is not credited."}
         };
         for (String[] q : qa) {
             TextView a = text(q[0], 14, TXT, true);
@@ -1623,7 +1637,7 @@ public class MainActivity extends Activity {
         tc.setOrientation(LinearLayout.VERTICAL);
         tc.setPadding(dp(9), dp(9), dp(9), dp(9));
         tc.setBackground(box(CARD, 12, LINE));
-        tc.addView(text("AAJ TOTAL", 7, MUTED, true));
+        tc.addView(text("TODAY TOTAL", 7, MUTED, true));
         TextView tot = text("₹0", 26, Color.parseColor("#34D399"), true);
         tc.addView(tot);
         tc.addView(text("5 payments", 8, MUTED, false));
@@ -1632,7 +1646,7 @@ public class MainActivity extends Activity {
         scr.addView(tc, tlp);
         totalOut[0] = tot;
         scr.addView(payMini("₹26", "✓ Order PAID", true));
-        scr.addView(payMini("₹2", "✕ Galat amount", false));
+        scr.addView(payMini("₹2", "✕ Wrong amount", false));
         scr.addView(payMini("₹11", "✓ Order PAID", true));
         scr.addView(payMini("₹100", "✓ Order PAID", true));
         LinearLayout vb = new LinearLayout(this);
@@ -1695,7 +1709,7 @@ public class MainActivity extends Activity {
         l1.topMargin = top + dp(262);
         sp0.addView(c1, l1);
         floatAnim(c1, 8, 1700, -6f, 3f, 200);
-        TextView c2 = chipFloat("₹78 aaj mila", Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6"), 13);
+        TextView c2 = chipFloat("₹78 today", Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6"), 13);
         FrameLayout.LayoutParams l2 = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.RIGHT);
         l2.rightMargin = dp(10);
         l2.topMargin = top + dp(200);
@@ -1835,7 +1849,7 @@ public class MainActivity extends Activity {
         planNote.setPadding(0, dp(9), 0, 0);
         planNote.setVisibility(View.GONE);
         planBox.addView(planNote);
-        planBtn = text("Renew karo", 14, Color.WHITE, true);
+        planBtn = text("Please renew", 14, Color.WHITE, true);
         planBtn.setGravity(Gravity.CENTER);
         planBtn.setPadding(0, dp(10), 0, dp(10));
         planBtn.setBackground(box(PRIMARY, 12, 0));
@@ -1888,13 +1902,13 @@ public class MainActivity extends Activity {
         lockDate = text("", 12, MUTED, false);
         lockDate.setGravity(Gravity.CENTER);
         pop.addView(lockDate);
-        TextView msg = text("Plan jaldi renew kar lo.\nAapka payment ruka hua hai. Ab koi payment karega to auto verification kaam nahi karega aur order PAID nahi hoga.", 13, Color.parseColor("#FECACA"), false);
+        TextView msg = text("Please renew your plan.\nAuto verification is stopped. New payments will not be verified and orders will not become PAID.", 13, Color.parseColor("#FECACA"), false);
         msg.setPadding(dp(12), dp(11), dp(12), dp(11));
         msg.setBackground(box(Color.parseColor("#26DC2626"), 12, BAD));
         LinearLayout.LayoutParams mp2 = new LinearLayout.LayoutParams(-1, -2);
         mp2.topMargin = dp(14);
         pop.addView(msg, mp2);
-        TextView go = text("Renew karo — ShopBot Builder kholo", 14, Color.WHITE, true);
+        TextView go = text("Renew now - open ShopBot Builder", 14, Color.WHITE, true);
         go.setGravity(Gravity.CENTER);
         go.setPadding(0, dp(13), 0, dp(13));
         go.setBackground(box(PRIMARY, 13, 0));
@@ -1903,15 +1917,15 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(-1, -2);
         gp.topMargin = dp(14);
         pop.addView(go, gp);
-        final TextView again = text("Renew kar liya? Phir se check karo", 12, Color.parseColor("#93C5FD"), true);
+        final TextView again = text("Renewed? Check again", 12, Color.parseColor("#93C5FD"), true);
         again.setGravity(Gravity.CENTER);
         again.setPadding(0, dp(12), 0, dp(2));
         again.setOnClickListener(v -> {
-            again.setText("Check ho raha hai...");
-            Plan.refresh(this, () -> { again.setText("Renew kar liya? Phir se check karo"); planTick(); });
+            again.setText("Checking...");
+            Plan.refresh(this, () -> { again.setText("Renewed? Check again"); planTick(); });
         });
         pop.addView(again);
-        TextView sm = text("Jab tak renew nahi hoga, app ke saare button band rahenge.", 11, MUTED, false);
+        TextView sm = text("All app buttons stay locked until you renew.", 11, MUTED, false);
         sm.setGravity(Gravity.CENTER);
         sm.setPadding(0, dp(8), 0, 0);
         pop.addView(sm);
@@ -1952,7 +1966,7 @@ public class MainActivity extends Activity {
             planHead.setText("PLAN EXPIRED");
             planHead.setTextColor(Color.parseColor("#F87171"));
             planDate.setTextColor(Color.parseColor("#F87171"));
-            lockDate.setText("Khatam hui: " + d);
+            lockDate.setText("Expired on: " + d);
             if (splashDone() && lockView.getVisibility() != View.VISIBLE) {
                 lockView.setAlpha(0f);
                 lockView.setVisibility(View.VISIBLE);
@@ -1972,9 +1986,9 @@ public class MainActivity extends Activity {
         for (TextView n : planNum) n.setTextColor(col);
         planDate.setTextColor(col);
         planBox.setBackground(soon ? box(Color.parseColor("#2A1D0A"), 16, Color.parseColor("#D97706")) : box(CARD, 16, LINE));
-        planHead.setText(soon ? "⚠ PLAN JALDI KHATAM HOGA" : "PREMIUM PLAN");
+        planHead.setText(soon ? "⚠ PLAN EXPIRING SOON" : "PREMIUM PLAN");
         planHead.setTextColor(soon ? Color.parseColor("#FBBF24") : MUTED);
-        planNote.setText("Renew kar lo, warna payment verify band ho jayegi.");
+        planNote.setText("Please renew, or payment verification will stop.");
         planNote.setVisibility(soon ? View.VISIBLE : View.GONE);
         planBtn.setVisibility(soon ? View.VISIBLE : View.GONE);
     }
@@ -2157,9 +2171,9 @@ public class MainActivity extends Activity {
             r.addView(left, new LinearLayout.LayoutParams(0, -2, 1f));
             TextView c = chip();
             if (paid) { c.setText("\u2713 Order PAID"); c.setBackground(box(GOOD, 20, 0)); }
-            else if (wrong) { c.setText("\u2715 Galat amount"); c.setBackground(box(BAD, 20, 0)); }
-            else if (noord) { c.setText("\u2715 Bina order"); c.setBackground(box(BAD, 20, 0)); }
-            else if (expd) { c.setText("\u2715 Premium khatam"); c.setBackground(box(BAD, 20, 0)); }
+            else if (wrong) { c.setText("\u2715 Wrong amount"); c.setBackground(box(BAD, 20, 0)); }
+            else if (noord) { c.setText("\u2715 No order"); c.setBackground(box(BAD, 20, 0)); }
+            else if (expd) { c.setText("\u2715 Premium expired"); c.setBackground(box(BAD, 20, 0)); }
             else setChip(c, ok, "\u2713 Sent", "\u2717 Failed");
             r.addView(c);
             View item = r;
@@ -2171,11 +2185,11 @@ public class MainActivity extends Activity {
                 card.setBackground(box(tint, 14, bad ? BAD : GOOD));
                 r.setPadding(0, dp(8), 0, dp(2));
                 card.addView(r);
-                String note = paid ? "Order mil gaya. Paisa credit ho gaya."
-                        : wrong ? "Order \u20B9" + exp + " ka tha, \u20B9" + f[2] + " aaya. Credit nahi hoga."
-                        : expd ? "Premium khatam. Renew karo, tab payment verify hogi."
-                        : expd ? "Premium khatam. Renew karo, tab payment verify hogi."
-                        : "Koi order nahi tha. Credit nahi hoga.";
+                String note = paid ? "Order matched. Payment credited."
+                        : wrong ? "Order was \u20B9" + exp + ", received \u20B9" + f[2] + ". Not credited."
+                        : expd ? "Premium expired. Renew to verify payments."
+                        : expd ? "Premium expired. Renew to verify payments."
+                        : "No order found. Not credited.";
                 card.addView(text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false));
                 LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
                 clp.setMargins(0, dp(8), 0, 0);
