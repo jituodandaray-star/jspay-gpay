@@ -15,6 +15,7 @@ public class Daily extends BroadcastReceiver {
     static final int REQ = 7010;
 
     static void schedule(Context c) {
+        if (true) return;   // daily summary notification removed
         try {
             AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
             Calendar t = Calendar.getInstance();
@@ -31,6 +32,7 @@ public class Daily extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context c, Intent in) {
+        if (true) return;
         try {
             SharedPreferences sp = c.getSharedPreferences("c", Context.MODE_PRIVATE);
             if (sp.getBoolean("daily_on", true)) {

@@ -101,7 +101,7 @@ public class DashService extends Service {
               .setContentText("Verifying payments from your Google dashboard")
               .setSmallIcon(android.R.drawable.stat_notify_sync)
               .setOngoing(true);
-            PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
+            PendingIntent pi = PendingIntent.getActivity(this, 0, new Intent(this, DashActivity.class),
                     PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
             nb.setContentIntent(pi);
             Notification n = nb.build();
@@ -142,6 +142,14 @@ public class DashService extends Service {
                 @Override
                 public void onPageFinished(WebView v, String u) { loadedAt = System.currentTimeMillis(); }
             });
+            try {
+                int w = getResources().getDisplayMetrics().widthPixels, hh = getResources().getDisplayMetrics().heightPixels;
+                web.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY),
+                        android.view.View.MeasureSpec.makeMeasureSpec(hh, android.view.View.MeasureSpec.EXACTLY));
+                web.layout(0, 0, w, hh);
+                web.onResume();
+                web.resumeTimers();
+            } catch (Throwable ignored) { }
             web.loadUrl(url);
         } catch (Throwable t) { stopSelf(); return; }
         h.postDelayed(loop, 5000);
@@ -153,6 +161,7 @@ public class DashService extends Service {
             if (!running) return;
             tick++;
             try {
+                web.onResume();
                 web.resumeTimers();
                 if (tick % 5 == 0) { loadedAt = 0; web.reload(); }   // ~20 sec
                 else if (loadedAt > 0 && System.currentTimeMillis() - loadedAt > 2500) {
@@ -166,15 +175,16 @@ public class DashService extends Service {
     };
 
     private void onText(String text) {
-        boolean signedOut = text.contains("Sign in") && !text.contains("Transactions");
+        boolean signedOut = (text.contains("Sign in") || text.contains("Sign-in")) && !text.contains("Transactions") && !text.contains("UPI transaction ID");
         ArrayList<String[]> tx = parseTx(text);
-        boolean loaded = !signedOut && text.length() > 100 && (!tx.isEmpty() || text.toLowerCase().contains("transactions"));
+        boolean loaded = !signedOut && text.length() > 100;
+        sp.edit().putLong("dash_try", System.currentTimeMillis()).putInt("dash_len", text.length()).putInt("dash_tx", tx.size()).apply();
         if (signedOut) {
             if (++signedOutTicks >= 3) {
                 sp.edit().putString("cashier_state", "expired").apply();
                 if (!warned) {
                     warned = true;
-                    Notifier.warn(this, 31, "Cashier disconnected", "Open JS PAY > Attached Cashier and sign in again.");
+                    Notifier.warn(this, 31, "Cashier disconnected", "Open JS PAY and sign in again.");
                 }
             }
             return;

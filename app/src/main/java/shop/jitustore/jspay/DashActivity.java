@@ -6,6 +6,7 @@ import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -40,13 +41,15 @@ import java.util.Locale;
 /** Attached Cashier: list screen + Add Cashier (server code) + Google sign-in screen. Sab kuch English mein. */
 public class DashActivity extends Activity {
     static final String START = "https://pay.google.com/g4b/";
-    static final int BG = Color.parseColor("#0B1220");
-    static final int CARD = Color.parseColor("#172033");
-    static final int LINE = Color.parseColor("#2B3A55");
-    static final int TXT = Color.parseColor("#E6EAF3");
-    static final int MUTED = Color.parseColor("#93A0B8");
-    static final int GREEN = Color.parseColor("#34D399");
+    static final int BG = Color.parseColor("#0B1020");
+    static final int CARD = Color.parseColor("#141B33");
+    static final int LINE = Color.parseColor("#26305A");
+    static final int PRIMARY = Color.parseColor("#6366F1");
+    static final int TXT = Color.parseColor("#F1F5F9");
+    static final int MUTED = Color.parseColor("#94A3B8");
+    static final int GREEN = Color.parseColor("#4ADE80");
     static final int RED = Color.parseColor("#F87171");
+    static final int SOFT = Color.parseColor("#A5B4FC");
 
     private SharedPreferences sp;
     private final Handler h = new Handler(Looper.getMainLooper());
@@ -120,47 +123,63 @@ public class DashActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(BG);
+        MainActivity.BgView bgv = new MainActivity.BgView(this);
+        root.addView(bgv, new FrameLayout.LayoutParams(-1, -1));
+        try { bgv.go(); } catch (Throwable ignored) { }
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         LinearLayout head = new LinearLayout(this);
         head.setOrientation(LinearLayout.HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setPadding(dp(16), dp(14), dp(16), dp(14));
-        head.setBackgroundColor(Color.parseColor("#111A2E"));
-        ImageView back = new ImageView(this);
-        back.setImageDrawable(new Ic("globe", TXT, dp(26)));
-        head.addView(back, new LinearLayout.LayoutParams(dp(28), dp(28)));
-        TextView title = tv("Attached Cashier Logs", 20, Color.WHITE, true);
-        title.setPadding(dp(14), 0, 0, 0);
-        head.addView(title, new LinearLayout.LayoutParams(0, -2, 1f));
-        ImageView help = new ImageView(this);
-        help.setImageDrawable(new Ic("info", TXT, dp(24)));
-        help.setOnClickListener(v -> showHelp());
-        head.addView(help, new LinearLayout.LayoutParams(dp(28), dp(28)));
+        head.setPadding(dp(20), dp(36), dp(20), dp(8));
+        TextView logo = tv("JS", 20, Color.WHITE, true);
+        logo.setGravity(Gravity.CENTER);
+        GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+        lg.setCornerRadius(dp(16));
+        logo.setBackground(lg);
+        head.addView(logo, new LinearLayout.LayoutParams(dp(54), dp(54)));
+        LinearLayout names = new LinearLayout(this);
+        names.setOrientation(LinearLayout.VERTICAL);
+        names.setPadding(dp(14), 0, 0, 0);
+        names.addView(tv("JS PAY", 22, TXT, true));
+        names.addView(tv("Attached Cashier", 13, MUTED, false));
+        head.addView(names, new LinearLayout.LayoutParams(0, -2, 1f));
+        LinearLayout dots = new LinearLayout(this);
+        dots.setOrientation(LinearLayout.VERTICAL);
+        dots.setGravity(Gravity.CENTER);
+        dots.setBackground(box(Color.parseColor("#1E2748"), 14, LINE));
+        for (int i = 0; i < 3; i++) {
+            View d = new View(this);
+            GradientDrawable dg = new GradientDrawable();
+            dg.setShape(GradientDrawable.OVAL);
+            dg.setColor(Color.WHITE);
+            d.setBackground(dg);
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(dp(5), dp(5));
+            dl.topMargin = i == 0 ? 0 : dp(4);
+            dots.addView(d, dl);
+        }
+        dots.setOnClickListener(v -> openDetails());
+        head.addView(dots, new LinearLayout.LayoutParams(dp(44), dp(44)));
         col.addView(head);
         ScrollView sv = new ScrollView(this);
         listBox = new LinearLayout(this);
         listBox.setOrientation(LinearLayout.VERTICAL);
-        listBox.setPadding(dp(14), dp(14), dp(14), dp(110));
+        listBox.setPadding(dp(20), dp(8), dp(20), dp(120));
         sv.addView(listBox);
         col.addView(sv, new LinearLayout.LayoutParams(-1, 0, 1f));
         root.addView(col, new FrameLayout.LayoutParams(-1, -1));
 
-        LinearLayout add = new LinearLayout(this);
-        add.setOrientation(LinearLayout.HORIZONTAL);
+        TextView add = tv("Add Cashier", 16, Color.WHITE, true);
         add.setGravity(Gravity.CENTER);
-        add.setPadding(dp(22), 0, dp(26), 0);
-        add.setBackground(box(CARD, 18, LINE));
-        ImageView ai = new ImageView(this);
-        ai.setImageDrawable(new Ic("globe", TXT, dp(22)));
-        add.addView(ai, new LinearLayout.LayoutParams(dp(22), dp(22)));
-        TextView at = tv("Add Cashier", 17, TXT, true);
-        at.setPadding(dp(14), 0, 0, 0);
-        add.addView(at);
+        GradientDrawable ag = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+        ag.setCornerRadius(dp(16));
+        add.setBackground(ag);
         add.setOnClickListener(v -> askCode());
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-2, dp(64));
-        lp.gravity = Gravity.BOTTOM | Gravity.END;
-        lp.setMargins(0, 0, dp(18), dp(26));
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, dp(56));
+        lp.gravity = Gravity.BOTTOM;
+        lp.setMargins(dp(20), 0, dp(20), dp(26));
         root.addView(add, lp);
         setContentView(root);
         renderList();
@@ -168,16 +187,24 @@ public class DashActivity extends Activity {
         h.postDelayed(listTick, 3000);
     }
 
+    void openDetails() {
+        try {
+            Intent in = new Intent(this, MainActivity.class);
+            in.putExtra("details", true);
+            startActivity(in);
+        } catch (Throwable e) { Toast.makeText(this, "Could not open details", Toast.LENGTH_SHORT).show(); }
+    }
+
     void renderList() {
         if (listBox == null) return;
         listBox.removeAllViews();
         String url = sp.getString("cashier_url", "");
         if (url.isEmpty()) {
-            TextView t = tv("No cashier attached yet.", 16, TXT, true);
+            TextView t = tv("No cashier added yet", 18, TXT, true);
             t.setGravity(Gravity.CENTER);
-            t.setPadding(0, dp(120), 0, dp(6));
+            t.setPadding(0, dp(110), 0, dp(8));
             listBox.addView(t);
-            TextView s = tv("Tap Add Cashier, enter the server code from your panel and sign in with Google.", 13, MUTED, false);
+            TextView s = tv("Tap Add Cashier, enter the server code from your panel and sign in with Google. Payments are then verified automatically.", 13, MUTED, false);
             s.setGravity(Gravity.CENTER);
             s.setPadding(dp(24), 0, dp(24), 0);
             listBox.addView(s);
@@ -192,22 +219,23 @@ public class DashActivity extends Activity {
         card.setBackground(box(CARD, 18, LINE));
         ImageView tile = new ImageView(this);
         tile.setScaleType(ImageView.ScaleType.CENTER);
-        tile.setImageDrawable(new Ic("globe", TXT, dp(26)));
-        tile.setBackground(box(Color.parseColor("#0F1626"), 16, 0));
+        tile.setImageDrawable(new Ic("shield", TXT, dp(26)));
+        tile.setBackground(box(Color.parseColor("#1E2748"), 16, 0));
         card.addView(tile, new LinearLayout.LayoutParams(dp(60), dp(60)));
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
         t.setPadding(dp(16), 0, 0, 0);
-        t.addView(tv("GooglePay Business", 17, Color.WHITE, true));
+        t.addView(tv("Google Pay Business", 17, Color.WHITE, true));
         long ts = sp.getLong("cashier_ok_ts", 0);
         t.addView(tv(new SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.US).format(new Date(ts == 0 ? System.currentTimeMillis() : ts)), 14, MUTED, false));
         String st; int col;
         if (expired) { st = "Disconnected. Tap to sign in again"; col = RED; }
         else if (alive) { st = "Verification completed successfully"; col = GREEN; }
-        else { st = "Connecting…"; col = Color.parseColor("#FBBF24"); }
+        else { st = "Connecting..."; col = SOFT; }
         t.addView(tv(st, 14, col, false));
         card.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
+        cp.topMargin = dp(14);
         card.setLayoutParams(cp);
         card.setOnClickListener(v -> { if (expired) startLogin(); else Toast.makeText(this, "Long press to remove this cashier", Toast.LENGTH_SHORT).show(); });
         card.setOnLongClickListener(v -> { askRemove(); return true; });
@@ -237,11 +265,6 @@ public class DashActivity extends Activity {
 
     // ---------------------------------------------------------------- Add Cashier dialog
     void askCode() {
-        final String secret = sp.getString("secret", "");
-        if (secret.length() < 5) {
-            Toast.makeText(this, "Please log in with your Login Key first", Toast.LENGTH_LONG).show();
-            return;
-        }
         final Dialog d = new Dialog(this);
         d.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout box = new LinearLayout(this);
@@ -262,11 +285,11 @@ public class DashActivity extends Activity {
         in.setTextSize(17);
         in.setSingleLine(true);
         in.setPadding(dp(14), dp(12), dp(14), dp(12));
-        in.setBackground(box(Color.parseColor("#0F1626"), 14, LINE));
+        in.setBackground(box(Color.parseColor("#0B1020"), 14, LINE));
         box.addView(in, new LinearLayout.LayoutParams(-1, -2));
         final TextView check = tv("Check", 17, Color.WHITE, true);
         check.setGravity(Gravity.CENTER);
-        check.setBackground(box(Color.parseColor("#1D4ED8"), 16, 0));
+        check.setBackground(box(PRIMARY, 16, 0));
         check.setAlpha(0.5f);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(dp(150), dp(52));
         cp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -289,14 +312,41 @@ public class DashActivity extends Activity {
             }
         });
         check.setOnClickListener(v -> {
-            String code = in.getText().toString().replaceAll("[^0-9]", "");
+            final String code = in.getText().toString().replaceAll("[^0-9]", "");
             if (code.length() != 12) return;
-            if (!code.equals(serverCode(secret))) {
-                Toast.makeText(this, "Invalid server code", Toast.LENGTH_LONG).show();
-                return;
-            }
-            d.dismiss();
-            startLogin();
+            check.setText("Checking...");
+            check.setEnabled(false);
+            new Thread(() -> {
+                String secret = ""; String msg = "";
+                try {
+                    java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(NotifService.URL_NOTIFY.replace("notify.php", "cashier.php")).openConnection();
+                    c.setRequestMethod("POST");
+                    c.setConnectTimeout(12000);
+                    c.setReadTimeout(12000);
+                    c.setDoOutput(true);
+                    c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                    java.io.OutputStream o = c.getOutputStream();
+                    o.write(("code=" + code).getBytes("UTF-8"));
+                    o.close();
+                    int rc = c.getResponseCode();
+                    java.io.InputStream is = rc >= 400 ? c.getErrorStream() : c.getInputStream();
+                    java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[1024]; int n;
+                    while (is != null && (n = is.read(buf)) > 0) bo.write(buf, 0, n);
+                    org.json.JSONObject j = new org.json.JSONObject(bo.toString("UTF-8"));
+                    if (rc == 200 && "ok".equals(j.optString("status"))) secret = j.optString("secret");
+                    else msg = rc == 429 ? "Too many attempts. Try again later." : "Invalid server code";
+                } catch (Exception e) { msg = "No internet. Please try again."; }
+                final String fs = secret, fm = msg;
+                runOnUiThread(() -> {
+                    check.setText("Check");
+                    check.setEnabled(true);
+                    if (fs.length() < 5) { Toast.makeText(this, fm.isEmpty() ? "Invalid server code" : fm, Toast.LENGTH_LONG).show(); return; }
+                    sp.edit().putString("secret", fs).putBoolean("verified", true).apply();
+                    d.dismiss();
+                    startLogin();
+                });
+            }).start();
         });
         d.setContentView(box);
         d.show();
@@ -321,9 +371,9 @@ public class DashActivity extends Activity {
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.VERTICAL);
         top.setPadding(dp(16), dp(16), dp(16), dp(14));
-        top.setBackgroundColor(Color.parseColor("#111A2E"));
-        top.addView(tv("Complete Process...", 20, Color.parseColor("#CBD5E1"), true));
-        top.addView(tv("Do not back press", 15, Color.parseColor("#B6C2D6"), false));
+        top.setBackgroundColor(Color.parseColor("#141B33"));
+        top.addView(tv("Complete Process...", 20, Color.WHITE, true));
+        top.addView(tv("Do not press back", 14, SOFT, false));
         root.addView(top);
         web = new WebView(this);
         WebSettings ws = web.getSettings();

@@ -54,6 +54,8 @@ public class MainActivity extends Activity {
     static final int MUTED = Color.parseColor("#94A3B8");
 
     SharedPreferences sp;
+    boolean details = false;
+    TextView menuTotal, bharatState;
     LinearLayout loginBox, dashBox;
     EditText key;
     ScrollView sv;
@@ -235,6 +237,7 @@ public class MainActivity extends Activity {
             case "dash": return "globe";
             case "today": return "rup";
             case "history": return "hist";
+            case "bharat": return "wifi";
             case "setup": return "shield";
             default: return "info";
         }
@@ -295,6 +298,13 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         sp = getSharedPreferences("c", MODE_PRIVATE);
+        details = getIntent() != null && getIntent().getBooleanExtra("details", false);
+        if (!details && splashShown) {
+            startActivity(new Intent(this, DashActivity.class));
+            finish();
+            return;
+        }
+        if (details) splashShown = true;
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
         try {
@@ -483,7 +493,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.18", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.19", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -500,6 +510,7 @@ public class MainActivity extends Activity {
         pages.put("today", buildToday());
         pages.put("history", buildHistoryPage());
         pages.put("setup", buildSetupPage());
+        pages.put("bharat", buildBharatPage());
         pages.put("about", buildAboutPage());
         for (java.util.Map.Entry<String, ScrollView> e : pages.entrySet()) {
             if (e.getKey().equals("home")) continue;
@@ -513,6 +524,7 @@ public class MainActivity extends Activity {
         }
         frame.addView(buildLock(), new FrameLayout.LayoutParams(-1, -1));
         setContentView(frame);
+        if (details) { jumpTo("menu"); }
         try {
             ttsT = new TextToSpeech(getApplicationContext(), st2 -> { ttsTReady = (st2 == TextToSpeech.SUCCESS); });
         } catch (Exception ignored) { }
@@ -544,6 +556,7 @@ public class MainActivity extends Activity {
     }
 
     void goBack() {
+        if (details && cur.equals("menu")) { finish(); return; }
         if (cur.equals("home")) return;
         String p = parentOf(cur);
         ScrollView from = pages.get(cur), to = pages.get(p);
@@ -554,6 +567,16 @@ public class MainActivity extends Activity {
         cur = p;
         sTap();
         onShow(p);
+    }
+
+    void jumpTo(String name) {
+        int w = getResources().getDisplayMetrics().widthPixels;
+        for (java.util.Map.Entry<String, ScrollView> e : pages.entrySet()) {
+            e.getValue().animate().cancel();
+            e.getValue().setTranslationX(e.getKey().equals(name) ? 0 : w);
+        }
+        cur = name;
+        onShow(name);
     }
 
     void jumpHome() {
@@ -567,7 +590,9 @@ public class MainActivity extends Activity {
 
     void onShow(String name) {
         try {
-            if (name.equals("voice")) refreshVoiceUi();
+            if (name.equals("menu")) { if (menuTotal != null) menuTotal.setText("\u20B9" + money(todayPaid())); }
+            else if (name.equals("bharat")) renderBharat();
+            else if (name.equals("voice")) refreshVoiceUi();
             else if (name.equals("today")) renderTodayPage();
             else if (name.equals("history")) renderHistoryPage();
             else if (name.equals("setup")) renderSetupPage();
@@ -1044,16 +1069,71 @@ public class MainActivity extends Activity {
         return it;
     }
 
+    double todayPaid() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        c.set(java.util.Calendar.MINUTE, 0);
+        c.set(java.util.Calendar.SECOND, 0);
+        c.set(java.util.Calendar.MILLISECOND, 0);
+        long start = c.getTimeInMillis();
+        double tot = 0;
+        for (String[] f : loadHist()) {
+            long ts = 0;
+            try { ts = Long.parseLong(f[0]); } catch (Exception ignored) { }
+            if (ts < start) continue;
+            String k = kindOf(f);
+            if (k.equals("paid") || k.equals("plain")) tot += amtOf(f);
+        }
+        return tot;
+    }
+
     ScrollView buildMenu() {
         LinearLayout[] o = new LinearLayout[1];
-        ScrollView s = mkPage("JS", "Menu", "Sab features yahan", o);
-        o[0].addView(menuItem("V", "#312E81", "Voice Alert", "Awaaz, bhasha, kab bole", "voice"));
-        o[0].addView(menuItem("₹", "#064E3B", "Aaj ka Hisaab", "Payments, total, warning", "today"));
-        o[0].addView(menuItem("H", "#7C2D12", "Payment History", "Purani payments, hare/laal box", "history"));
-        o[0].addView(menuItem("D", "#0F766E", "Attached Cashier", "Verify payments from Google dashboard", "dash"));
-        o[0].addView(menuItem("S", "#1E3A8A", "Setup Check", "Sab ON hai ya nahi, ek jagah", "setup"));
-        o[0].addView(menuItem("i", "#4C1D95", "About & Help", "Version, Open Panel, madad", "about"));
+        ScrollView s = mkPage("JS", "Details", "Your cashier and deposits", o);
+        LinearLayout big = card();
+        big.addView(text("TODAY'S DEPOSIT", 11, MUTED, true));
+        menuTotal = text("\u20B90", 38, Color.parseColor("#34D399"), true);
+        menuTotal.setPadding(0, dp(6), 0, dp(2));
+        big.addView(menuTotal);
+        big.addView(text("Verified payments received today", 13, MUTED, false));
+        o[0].addView(big);
+        o[0].addView(menuItem("\u20B9", "#064E3B", "Today's Deposit", "Payments, total, warnings", "today"));
+        o[0].addView(menuItem("H", "#7C2D12", "Payment History", "All verified payments", "history"));
+        o[0].addView(menuItem("B", "#1E3A8A", "Connect BharatPe", "Same server code, how it works", "bharat"));
+        o[0].addView(menuItem("V", "#312E81", "Voice Alert", "Sound and language", "voice"));
+        o[0].addView(menuItem("i", "#4C1D95", "About & Help", "Version, panel, support", "about"));
         return s;
+    }
+
+    ScrollView buildBharatPage() {
+        LinearLayout[] o = new LinearLayout[1];
+        ScrollView s = mkPage("B", "Connect BharatPe", "Uses the same server code", o);
+        LinearLayout c1 = card();
+        c1.addView(text("HOW IT WORKS", 11, MUTED, true));
+        TextView t1 = text("BharatPe payments are verified from the BharatPe for Business app notification on this phone. It uses the same server code and the same account as your Google Pay cashier, so nothing else has to be entered.", 14, TXT, false);
+        t1.setPadding(0, dp(8), 0, 0);
+        c1.addView(t1);
+        o[0].addView(c1);
+        LinearLayout c2 = card();
+        c2.addView(text("STEPS", 11, MUTED, true));
+        TextView t2 = text("1. Add your cashier with the server code (the app home screen).\n2. Turn ON Notification Access for JS PAY (button below).\n3. Allow background use / unrestricted battery (button below).\n4. Install BharatPe for Business on this phone, sign in and keep its notifications ON.\n5. Create a BharatPe payment in your panel and pay the exact amount. When it shows PAID, it is working.", 14, TXT, false);
+        t2.setPadding(0, dp(8), 0, 0);
+        t2.setLineSpacing(0, 1.15f);
+        c2.addView(t2);
+        o[0].addView(c2);
+        bharatState = text("", 14, MUTED, true);
+        bharatState.setPadding(dp(4), dp(16), 0, 0);
+        o[0].addView(bharatState);
+        o[0].addView(button("Notification Access", true, v -> { try { startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); } catch (Exception e) { } }));
+        o[0].addView(button("Allow background use", false, v -> fixBattery()));
+        return s;
+    }
+
+    void renderBharat() {
+        if (bharatState == null) return;
+        boolean a = notifOn(), b = battOk();
+        bharatState.setText("Notification Access: " + (a ? "ON" : "OFF") + "\nBackground use: " + (b ? "ON" : "OFF"));
+        bharatState.setTextColor(a && b ? Color.parseColor("#4ADE80") : Color.parseColor("#F87171"));
     }
 
     ScrollView buildToday() {
@@ -1419,7 +1499,7 @@ public class MainActivity extends Activity {
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.18"));
+        c.addView(kv("Version", "v1.19"));
         c.addView(kv("Login Key", masked));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
@@ -1679,6 +1759,11 @@ public class MainActivity extends Activity {
                 splashAnims.clear();
                 if (sp0.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) sp0.getParent()).removeView(sp0);
                 planTick();
+                if (!details) {
+                    startActivity(new Intent(MainActivity.this, DashActivity.class));
+                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                    finish();
+                }
             }).start();
         };
         sp0.setOnClickListener(v -> finish.run());
@@ -1911,6 +1996,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (loginBox == null) return;
         front = this;
         DashService.ensure(this);
         if (bg != null) bg.go();
