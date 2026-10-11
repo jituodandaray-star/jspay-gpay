@@ -44,17 +44,18 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    static final int BG = Color.parseColor("#0B1020");
-    static final int CARD = Color.parseColor("#141B33");
-    static final int LINE = Color.parseColor("#26305A");
-    static final int PRIMARY = Color.parseColor("#6366F1");
+static final int BG = Color.parseColor("#FFFFFF");
+static final int CARD = Color.parseColor("#FFFFFF");
+static final int LINE = Color.parseColor("#D9D3F5");
+static final int PRIMARY = Color.parseColor("#6246EA");
     static final int GOOD = Color.parseColor("#16A34A");
     static final int BAD = Color.parseColor("#DC2626");
-    static final int TXT = Color.parseColor("#F1F5F9");
-    static final int MUTED = Color.parseColor("#94A3B8");
+static final int TXT = Color.parseColor("#1A1740");
+static final int MUTED = Color.parseColor("#6B6890");
 
     SharedPreferences sp;
     boolean details = false;
+    String entry = "menu";
     TextView menuTotal, bharatState;
     LinearLayout loginBox, dashBox;
     EditText key;
@@ -99,7 +100,7 @@ public class MainActivity extends Activity {
                 float cx = (float) (fx[i] * w + Math.sin(a) * w * 0.12);
                 float cy = (float) (fy[i] * h + Math.cos(a * 0.8) * h * 0.06);
                 float r = w * (0.38f + 0.05f * (float) Math.sin(a * 1.3));
-                int c0 = (col[i] & 0x00FFFFFF) | 0x2E000000;
+                int c0 = (col[i] & 0x00FFFFFF) | 0x1E000000;
                 p.setShader(new RadialGradient(cx, cy, r, c0, col[i] & 0x00FFFFFF, Shader.TileMode.CLAMP));
                 cv.drawCircle(cx, cy, r, p);
             }
@@ -222,7 +223,7 @@ public class MainActivity extends Activity {
 
     String iconFor(String label) {
         switch (label) {
-            case "Login Key": return "key";
+            case "Login Key": case "Account": return "key";
             case "Notification Access": return "bell";
             case "Background / Battery": return "batt";
             case "Internet": return "globe";
@@ -249,7 +250,7 @@ public class MainActivity extends Activity {
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(0, dp(12), 0, dp(4));
         android.widget.ImageView iv = new android.widget.ImageView(this);
-        iv.setImageDrawable(new Ic(icon, Color.parseColor("#6EE7B7"), dp(22)));
+        iv.setImageDrawable(new Ic(icon, Color.parseColor("#6246EA"), dp(22)));
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(22), dp(22));
         ilp.rightMargin = dp(12);
         r.addView(iv, ilp);
@@ -259,10 +260,14 @@ public class MainActivity extends Activity {
         t.addView(text(sub, 12, MUTED, false));
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         android.widget.Switch sw = new android.widget.Switch(this);
-        sw.setChecked(sp.getBoolean(key, true));
+        sw.setChecked(sp.getBoolean(key, !key.equals("voice_other")));
         sw.setOnCheckedChangeListener((bv, on) -> {
             sp.edit().putBoolean(key, on).apply();
             if (key.equals("daily_on") && on) Daily.schedule(this);
+            if (key.equals("voice_other") && on && !notifOn()) {
+                Toast.makeText(this, "Turn ON Notification Access for JS PAY", Toast.LENGTH_LONG).show();
+                try { startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); } catch (Exception ignored) { }
+            }
         });
         r.addView(sw);
         return r;
@@ -276,7 +281,7 @@ public class MainActivity extends Activity {
         String ik = iconFor(label);
         if (!ik.isEmpty()) {
             android.widget.ImageView iv = new android.widget.ImageView(this);
-            iv.setImageDrawable(new Ic(ik, Color.parseColor("#A5B4FC"), dp(20)));
+            iv.setImageDrawable(new Ic(ik, Color.parseColor("#6246EA"), dp(20)));
             LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(dp(20), dp(20));
             ilp.rightMargin = dp(10);
             r.addView(iv, ilp);
@@ -299,6 +304,7 @@ public class MainActivity extends Activity {
         super.onCreate(b);
         sp = getSharedPreferences("c", MODE_PRIVATE);
         details = getIntent() != null && getIntent().getBooleanExtra("details", false);
+        try { String pg = getIntent() == null ? null : getIntent().getStringExtra("page"); if (pg != null && !pg.isEmpty()) entry = pg; } catch (Exception ignored) { }
         if (!details && splashShown) {
             startActivity(new Intent(this, DashActivity.class));
             finish();
@@ -307,6 +313,7 @@ public class MainActivity extends Activity {
         if (details) splashShown = true;
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        try { getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT >= 26 ? View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR : 0)); } catch (Throwable ignored) { }
         try {
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 77);
@@ -330,7 +337,7 @@ public class MainActivity extends Activity {
         TextView logo = text("JS", 20, Color.WHITE, true);
         logo.setGravity(Gravity.CENTER);
         GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+                new int[]{Color.parseColor("#6246EA"), Color.parseColor("#8B5CF6")});
         lg.setCornerRadius(dp(16));
         logo.setBackground(lg);
         logo.setLayoutParams(new LinearLayout.LayoutParams(dp(54), dp(54)));
@@ -346,7 +353,7 @@ public class MainActivity extends Activity {
         LinearLayout menu = new LinearLayout(this);
         menu.setOrientation(LinearLayout.VERTICAL);
         menu.setGravity(Gravity.CENTER);
-        menu.setBackground(box(Color.parseColor("#1E2748"), 14, LINE));
+        menu.setBackground(box(Color.parseColor("#ECE8FF"), 14, LINE));
         for (int i = 0; i < 3; i++) {
             View bar = new View(this);
             bar.setBackgroundColor(Color.WHITE);
@@ -379,7 +386,7 @@ public class MainActivity extends Activity {
         lc.addView(hint);
         key = new EditText(this);
         key.setHint("GN_xxxxxxxxxxxxxxxx");
-        key.setHintTextColor(Color.parseColor("#64748B"));
+        key.setHintTextColor(Color.parseColor("#8A87A8"));
         key.setTextColor(TXT);
         key.setTextSize(14);
         key.setSingleLine(true);
@@ -394,7 +401,7 @@ public class MainActivity extends Activity {
             }
             return false;
         });
-        key.setBackground(box(Color.parseColor("#0B1020"), 12, LINE));
+        key.setBackground(box(Color.parseColor("#F4F1FF"), 12, LINE));
         key.setPadding(dp(14), dp(12), dp(14), dp(12));
         lc.addView(key, new LinearLayout.LayoutParams(-1, -2));
         lc.addView(button("Paste from clipboard", false, v -> {
@@ -409,7 +416,7 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "Could not paste. Long-press the box to paste.", Toast.LENGTH_SHORT).show();
             }
         }));
-        loginMsg = text("", 13, Color.parseColor("#F87171"), false);
+        loginMsg = text("", 13, Color.parseColor("#DC2626"), false);
         loginMsg.setPadding(0, dp(8), 0, 0);
         lc.addView(loginMsg);
         loginBtn = button("Login", true, v -> {
@@ -431,7 +438,7 @@ public class MainActivity extends Activity {
         chipAccess = chip();
         chipBatt = chip();
         chipNet = chip();
-        st.addView(row("Login Key", chipKey, null));
+        st.addView(row("Account", chipKey, null));
         st.addView(row("Notification Access", chipAccess, v -> {
             if (!notifOn()) startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
         }));
@@ -442,7 +449,7 @@ public class MainActivity extends Activity {
         rowLast = text("", 13, MUTED, false);
         rowLast.setPadding(0, dp(14), 0, 0);
         st.addView(rowLast);
-        TextView tapHint = text("Tap anything in red to turn it on.", 12, Color.parseColor("#64748B"), false);
+        TextView tapHint = text("Tap anything in red to turn it on.", 12, Color.parseColor("#8A87A8"), false);
         tapHint.setPadding(0, dp(8), 0, 0);
         st.addView(tapHint);
         dashBox.addView(st);
@@ -493,7 +500,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.19", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.20", 12, Color.parseColor("#8A87A8"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -524,7 +531,7 @@ public class MainActivity extends Activity {
         }
         frame.addView(buildLock(), new FrameLayout.LayoutParams(-1, -1));
         setContentView(frame);
-        if (details) { jumpTo("menu"); } else { sv.setVisibility(View.INVISIBLE); }
+        if (details) { jumpTo(entry); } else { sv.setVisibility(View.INVISIBLE); }
         try {
             ttsT = new TextToSpeech(getApplicationContext(), st2 -> { ttsTReady = (st2 == TextToSpeech.SUCCESS); });
         } catch (Exception ignored) { }
@@ -556,7 +563,7 @@ public class MainActivity extends Activity {
     }
 
     void goBack() {
-        if (details && cur.equals("menu")) { finish(); return; }
+        if (details && (cur.equals("menu") || cur.equals(entry))) { finish(); return; }
         if (cur.equals("home")) return;
         String p = parentOf(cur);
         ScrollView from = pages.get(cur), to = pages.get(p);
@@ -639,7 +646,7 @@ public class MainActivity extends Activity {
         TextView logo = text("JS", 20, Color.WHITE, true);
         logo.setGravity(Gravity.CENTER);
         GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+                new int[]{Color.parseColor("#6246EA"), Color.parseColor("#8B5CF6")});
         lg.setCornerRadius(dp(16));
         logo.setBackground(lg);
         logo.setLayoutParams(new LinearLayout.LayoutParams(dp(54), dp(54)));
@@ -714,18 +721,26 @@ public class MainActivity extends Activity {
         c1.addView(test);
         r2.addView(c1);
 
+        LinearLayout co = card();
+        co.addView(text("OTHER UPI APPS", 11, MUTED, true));
+        co.addView(toggleRow("vol", "Announce other apps", "Speak the amount when PhonePe, Paytm or other UPI apps receive money", "voice_other"));
+        TextView coNote = text("Voice only. These payments are not verified and do not change any order. Needs Notification Access.", 12, MUTED, false);
+        coNote.setPadding(0, dp(10), 0, 0);
+        co.addView(coNote);
+        r2.addView(co);
+
         LinearLayout c2 = card();
         c2.addView(text("SAMPLE", 11, MUTED, true));
-        vSample1 = text("", 13, Color.parseColor("#C7D2FE"), false);
-        vSample2 = text("", 13, Color.parseColor("#FECACA"), false);
-        vSample3 = text("", 13, Color.parseColor("#FECACA"), false);
+        vSample1 = text("", 13, Color.parseColor("#4F46E5"), false);
+        vSample2 = text("", 13, Color.parseColor("#B91C1C"), false);
+        vSample3 = text("", 13, Color.parseColor("#B91C1C"), false);
         for (TextView t : new TextView[]{vSample1, vSample2, vSample3}) {
             t.setPadding(dp(10), dp(8), dp(10), dp(8));
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
             p.topMargin = dp(8);
             c2.addView(t, p);
         }
-        vSample1.setBackground(box(Color.parseColor("#226366F1"), 12, Color.parseColor("#6366F1")));
+        vSample1.setBackground(box(Color.parseColor("#226246EA"), 12, Color.parseColor("#6246EA")));
         vSample2.setBackground(box(Color.parseColor("#22DC2626"), 12, BAD));
         vSample3.setBackground(box(Color.parseColor("#22DC2626"), 12, BAD));
         r2.addView(c2);
@@ -762,7 +777,7 @@ public class MainActivity extends Activity {
     }
 
     String voiceInfo(android.speech.tts.Voice v) {
-        return (v.isNetworkConnectionRequired() ? "Internet chahiye" : "Offline") + " \u00B7 " + v.getLocale().getDisplayCountry();
+        return (v.isNetworkConnectionRequired() ? "Needs internet" : "Offline") + " \u00B7 " + v.getLocale().getDisplayCountry();
     }
 
     void renderVoiceList() {
@@ -818,7 +833,7 @@ public class MainActivity extends Activity {
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
         r.setPadding(dp(12), dp(9), dp(12), dp(9));
-        r.setBackground(on ? box(Color.parseColor("#226366F1"), 12, PRIMARY) : box(Color.TRANSPARENT, 12, LINE));
+        r.setBackground(on ? box(Color.parseColor("#226246EA"), 12, PRIMARY) : box(Color.TRANSPARENT, 12, LINE));
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
         rp.topMargin = dp(6);
         rp.leftMargin = dp(14);
@@ -830,7 +845,7 @@ public class MainActivity extends Activity {
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         if (on) {
             android.widget.ImageView ck = new android.widget.ImageView(this);
-            ck.setImageDrawable(new Ic("check", Color.parseColor("#4ADE80"), dp(22)));
+            ck.setImageDrawable(new Ic("check", Color.parseColor("#16A34A"), dp(22)));
             r.addView(ck, new LinearLayout.LayoutParams(dp(22), dp(22)));
         }
         r.setOnClickListener(x -> {
@@ -949,7 +964,7 @@ public class MainActivity extends Activity {
                 card.addView(t2);
             }
             if (!sub.isEmpty()) {
-                TextView t3 = text(sub, 15, Color.parseColor("#64748B"), false);
+                TextView t3 = text(sub, 15, Color.parseColor("#8A87A8"), false);
                 t3.setGravity(Gravity.CENTER);
                 t3.setPadding(0, dp(6), 0, 0);
                 card.addView(t3);
@@ -1024,7 +1039,7 @@ public class MainActivity extends Activity {
         TextView logo = text(icon, 20, Color.WHITE, true);
         logo.setGravity(Gravity.CENTER);
         GradientDrawable lg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.parseColor("#6366F1"), Color.parseColor("#8B5CF6")});
+                new int[]{Color.parseColor("#6246EA"), Color.parseColor("#8B5CF6")});
         lg.setCornerRadius(dp(16));
         logo.setBackground(lg);
         logo.setLayoutParams(new LinearLayout.LayoutParams(dp(54), dp(54)));
@@ -1092,7 +1107,7 @@ public class MainActivity extends Activity {
         ScrollView s = mkPage("JS", "Details", "Your cashier and deposits", o);
         LinearLayout big = card();
         big.addView(text("TODAY'S DEPOSIT", 11, MUTED, true));
-        menuTotal = text("\u20B90", 38, Color.parseColor("#34D399"), true);
+        menuTotal = text("\u20B90", 38, Color.parseColor("#16A34A"), true);
         menuTotal.setPadding(0, dp(6), 0, dp(2));
         big.addView(menuTotal);
         big.addView(text("Verified payments received today", 13, MUTED, false));
@@ -1122,8 +1137,8 @@ public class MainActivity extends Activity {
         c2.addView(t2);
         o[0].addView(c2);
         LinearLayout c3 = card();
-        c3.setBackground(box(Color.parseColor("#2A1D0A"), 18, Color.parseColor("#D97706")));
-        c3.addView(text("IMPORTANT NOTICE", 11, Color.parseColor("#FBBF24"), true));
+        c3.setBackground(box(Color.parseColor("#FFF4DC"), 18, Color.parseColor("#D97706")));
+        c3.addView(text("IMPORTANT NOTICE", 11, Color.parseColor("#B45309"), true));
         TextView t3 = text("BharatPe is verified from phone notifications. A notification is not a bank record: it can be fake, repeated, delayed or missed, and it stops working if Notification Access, battery permission or internet is turned off.\n\nIf you choose to use BharatPe with JS PAY, you accept this risk. JS PAY and its owner are not responsible for any loss, wrong order approval or missed payment caused by BharatPe notifications. Always check your bank or BharatPe balance for important orders.", 13, TXT, false);
         t3.setPadding(0, dp(8), 0, 0);
         t3.setLineSpacing(0, 1.12f);
@@ -1148,7 +1163,7 @@ public class MainActivity extends Activity {
         if (bharatState == null) return;
         boolean a = notifOn(), b = battOk();
         bharatState.setText("Notification Access: " + (a ? "ON" : "OFF") + "\nBackground use: " + (b ? "ON" : "OFF"));
-        bharatState.setTextColor(a && b ? Color.parseColor("#4ADE80") : Color.parseColor("#F87171"));
+        bharatState.setTextColor(a && b ? Color.parseColor("#16A34A") : Color.parseColor("#DC2626"));
     }
 
     ScrollView buildToday() {
@@ -1287,7 +1302,7 @@ public class MainActivity extends Activity {
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
         String a = f[2].isEmpty() ? "Payment" : "₹" + f[2];
-        left.addView(text(a, 17, bad ? Color.parseColor("#F87171") : Color.parseColor("#4ADE80"), true));
+        left.addView(text(a, 17, bad ? Color.parseColor("#DC2626") : Color.parseColor("#16A34A"), true));
         String w = whoOf(f);
         if (!w.isEmpty()) left.addView(text(w, 14, TXT, false));
         left.addView(text(new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(ts)), 12, MUTED, false));
@@ -1317,7 +1332,7 @@ public class MainActivity extends Activity {
                 : kind.equals("noorder") ? "No order found. Not credited."
                 : kind.equals("expired") ? "Premium expired. Renew to verify payments."
                 : "Could not reach the server.";
-        TextView nt = text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false);
+        TextView nt = text(note, 12, bad ? Color.parseColor("#B91C1C") : Color.parseColor("#15803D"), false);
         nt.setPadding(0, dp(6), 0, 0);
         card.addView(nt);
         card.setLayoutParams(lp);
@@ -1330,7 +1345,7 @@ public class MainActivity extends Activity {
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(6), dp(12), dp(6), dp(12));
         b.setBackground(box(tint, 14, stroke));
-        TextView n = text(num, 22, Color.WHITE, true);
+        TextView n = text(num, 22, TXT, true);
         n.setGravity(Gravity.CENTER);
         b.addView(n);
         TextView l = text(label, 12, MUTED, false);
@@ -1370,7 +1385,7 @@ public class MainActivity extends Activity {
         paintGw(tg);
         LinearLayout big = card();
         big.addView(text(gwFilter.equals("bp") ? "BHARATPE TODAY" : gwFilter.equals("gp") ? "GPAY TODAY" : "TOTAL TODAY", 11, MUTED, true));
-        TextView t = text("₹" + money(total), 38, Color.parseColor("#34D399"), true);
+        TextView t = text("₹" + money(total), 38, Color.parseColor("#16A34A"), true);
         t.setPadding(0, dp(6), 0, dp(2));
         big.addView(t);
         big.addView(text(lastTs > 0 ? "Last payment: " + new SimpleDateFormat("hh:mm a", Locale.US).format(new Date(lastTs)) : "No payment received today", 13, MUTED, false));
@@ -1447,12 +1462,12 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { }
         LinearLayout c = card();
         TextView c1 = chip(), c2 = chip(), c3 = chip(), c4 = chip(), c5 = chip();
-        setChip(c1, verified, "Logged in", "Not logged in");
+        setChip(c1, verified, "Connected", "Not connected");
         setChip(c2, access, "ON ✓", "OFF - Fix");
         setChip(c3, batt, "ON ✓", "OFF - Fix");
         setChip(c4, net, "Online ✓", "OFFLINE");
         setChip(c5, ttsOk && hiOk, "Hindi ✓", ttsOk ? "English only" : "Not ready");
-        c.addView(row("Login Key", c1, null));
+        c.addView(row("Account", c1, null));
         c.addView(row("Notification Access", c2, v -> { if (!notifOn()) startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }));
         c.addView(row("Background / Battery", c3, v -> {
             if (!battOk()) startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName())));
@@ -1463,6 +1478,7 @@ public class MainActivity extends Activity {
         LinearLayout tc = card();
         tc.addView(text("AUTO AND ALERTS", 11, MUTED, true));
         tc.addView(toggleRow("power", "Start on phone boot", "No need to open the app after restart", "autostart"));
+        tc.addView(toggleRow("vol", "Announce other apps", "Speak amounts from PhonePe, Paytm and other UPI apps", "voice_other"));
         tc.addView(toggleRow("bell", "Pop-up alert", "Pop-up on screen when a payment arrives", "pop_on"));
         setupBox.addView(tc);
         setupBox.addView(button("Open pop-up settings", false, v -> {
@@ -1474,7 +1490,7 @@ public class MainActivity extends Activity {
         }));
         setupBox.addView(button("Preview pop-up (test)", false, v -> showPopup("paid", "2", "bp", "Saumya Ranjan", "")));
         LinearLayout lc = card();
-        lc.addView(text("AAKHRI SIGNAL", 11, MUTED, true));
+        lc.addView(text("LAST SIGNAL", 11, MUTED, true));
         long last = sp.getLong("last", 0);
         TextView lt = text(last > 0 ? new SimpleDateFormat("dd MMM, hh:mm a", Locale.US).format(new Date(last)) + "  (server " + sp.getInt("code", 0) + ")" : "No signal yet", 14, TXT, false);
         lt.setPadding(0, dp(8), 0, 0);
@@ -1486,9 +1502,9 @@ public class MainActivity extends Activity {
         if (!access) warn = "Notification Access is OFF. Payments will not be detected. Tap Fix above.";
         else if (!batt) warn = "Battery / Background is OFF. Payments may be missed. Tap Fix above.";
         else if (!net) warn = "Internet is off. Payments cannot reach the server.";
-        else if (!verified) warn = "Login Key daalo.";
+        else if (!verified) warn = "Please add your cashier first.";
         if (!warn.isEmpty()) {
-            TextView w = text(warn, 13, Color.parseColor("#FECACA"), false);
+            TextView w = text(warn, 13, Color.parseColor("#B91C1C"), false);
             w.setPadding(dp(12), dp(10), dp(12), dp(10));
             w.setBackground(box(Color.parseColor("#26DC2626"), 12, BAD));
             LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(-1, -2);
@@ -1513,7 +1529,7 @@ public class MainActivity extends Activity {
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.19"));
+        c.addView(kv("Version", "v1.20"));
         c.addView(kv("Cashier", sp.getString("cashier_url", "").isEmpty() ? "Not added" : "Added"));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
@@ -2159,7 +2175,7 @@ public class MainActivity extends Activity {
             LinearLayout left = new LinearLayout(this);
             left.setOrientation(LinearLayout.VERTICAL);
             String amt = f[2].isEmpty() ? "Payment" : "\u20B9" + f[2];
-            left.addView(text(amt, 17, bad ? Color.parseColor("#F87171") : (ok ? Color.parseColor("#4ADE80") : TXT), true));
+            left.addView(text(amt, 17, bad ? Color.parseColor("#DC2626") : (ok ? Color.parseColor("#16A34A") : TXT), true));
             String whoS = whoOf(f);
             if (!whoS.isEmpty()) {
                 TextView who = text(whoS, 14, TXT, false);
@@ -2190,7 +2206,7 @@ public class MainActivity extends Activity {
                         : expd ? "Premium expired. Renew to verify payments."
                         : expd ? "Premium expired. Renew to verify payments."
                         : "No order found. Not credited.";
-                card.addView(text(note, 12, bad ? Color.parseColor("#FECACA") : Color.parseColor("#BBF7D0"), false));
+                card.addView(text(note, 12, bad ? Color.parseColor("#B91C1C") : Color.parseColor("#15803D"), false));
                 LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
                 clp.setMargins(0, dp(8), 0, 0);
                 card.setLayoutParams(clp);

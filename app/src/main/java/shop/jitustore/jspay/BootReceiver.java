@@ -19,7 +19,7 @@ public class BootReceiver extends BroadcastReceiver {
             } catch (Exception ignored) { }
             Notifier.channels(c);
             Daily.schedule(c);
-            DashService.ensure(c);
+            DashService.ensure(c, true);
         } catch (Exception ignored) { }
     }
 }

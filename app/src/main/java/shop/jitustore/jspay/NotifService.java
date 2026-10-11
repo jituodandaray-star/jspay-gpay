@@ -111,7 +111,7 @@ public class NotifService extends NotificationListenerService {
     public void onNotificationPosted(StatusBarNotification sbn) {
         try {
             String pkg = sbn.getPackageName();
-            if (!pkg.startsWith("com.google.android.apps.nbu.paisa") && !pkg.toLowerCase().contains("bharatpe")) return;
+            if (!pkg.startsWith("com.google.android.apps.nbu.paisa") && !pkg.toLowerCase().contains("bharatpe")) { otherApp(sbn, pkg); return; }
             SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
             if (System.currentTimeMillis() - sp.getLong("svc_ok", 0) < 90000L) return; // Cashier (Google dashboard) abhi chal raha hai: wahi bhejega
             final String secret = sp.getString("secret", "");
@@ -139,6 +139,46 @@ public class NotifService extends NotificationListenerService {
                 }
             }
             new Thread(() -> send(secret, title, text, pt)).start();
+        } catch (Exception ignored) { }
+    }
+
+    static String lastOtherKey = "";
+    static long lastOtherAt = 0;
+    static final String[] OTHER_APPS = {"phonepe", "paytm", "one97", "npci", "bhim", "mobikwik", "freecharge", "fampay", "amazon.mshop"};
+
+    /** PhonePe, Paytm jaise dusre UPI apps: sirf awaaz, server ko kuch nahi bhejna. */
+    private void otherApp(StatusBarNotification sbn, String pkg) {
+        try {
+            SharedPreferences sp = getSharedPreferences("c", MODE_PRIVATE);
+            if (!sp.getBoolean("voice_other", false)) return;
+            String p = pkg.toLowerCase();
+            boolean known = false;
+            for (String k : OTHER_APPS) if (p.contains(k)) { known = true; break; }
+            if (!known) return;
+            Notification n = sbn.getNotification();
+            if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;
+            CharSequence t = n.extras.getCharSequence(Notification.EXTRA_TITLE);
+            CharSequence x = n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT);
+            if (x == null) x = n.extras.getCharSequence(Notification.EXTRA_TEXT);
+            String all = (t == null ? "" : t.toString()) + " " + (x == null ? "" : x.toString());
+            if (all.trim().isEmpty()) return;
+            String low = all.toLowerCase();
+            boolean credit = low.contains("received") || low.contains("credited") || low.contains("paid you") || low.contains("sent you") || low.contains("deposited") || low.contains("added to your");
+            boolean debit = low.contains("debited") || low.contains("paid to") || low.contains("sent to") || low.contains("you paid") || low.contains("you sent") || low.contains("request") || low.contains("failed") || low.contains("declined") || low.contains("refund") || low.contains("reminder");
+            if (!credit || debit) return;
+            Matcher m = Pattern.compile("(?:\u20B9|Rs\\.?|INR)\\s?([0-9,]+(?:\\.[0-9]{1,2})?)").matcher(all);
+            if (!m.find()) return;
+            String amount = m.group(1).replace(",", "");
+            String key = p + "#" + amount + "#" + all;
+            long now = System.currentTimeMillis();
+            synchronized (NotifService.class) {
+                if (key.equals(lastOtherKey) && now - lastOtherAt < 30000L) return;
+                lastOtherKey = key;
+                lastOtherAt = now;
+            }
+            String app = "";
+            try { app = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0))); } catch (Exception ignored) { }
+            speak("other", amount, app, "gp");
         } catch (Exception ignored) { }
     }
 

@@ -26,6 +26,7 @@ public class Voice {
         String n = gwName(gw, lang);
         String a = money(amount, lang);
         String e = money(exp, lang);
+        if (kind.equals("other")) return otherSay(lang, a, exp);
         switch (lang) {
             case "hi":
                 switch (kind) {
@@ -72,6 +73,18 @@ public class Voice {
                     case "failed": return "Payment could not reach the server. Check internet.";
                     default: return "Received " + a + " in " + n + ".";
                 }
+        }
+    }
+
+    /** Dusre UPI app (PhonePe, Paytm...) mein payment aayi: sirf awaaz. app = us app ka naam. */
+    static String otherSay(String lang, String a, String app) {
+        String n = (app == null || app.isEmpty()) ? "UPI" : app;
+        switch (lang) {
+            case "hi": return n + " में " + a + " प्राप्त हुए।";
+            case "bn": return n + "-এ " + a + " পাওয়া গেছে।";
+            case "or": return n + "ରେ " + a + " ମିଳିଲା।";
+            case "od": return n + " रे " + a + " मिळिला।";
+            default: return "Received " + a + " in " + n + ".";
         }
     }
 

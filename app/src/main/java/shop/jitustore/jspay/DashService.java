@@ -40,11 +40,22 @@ public class DashService extends Service {
     private int tick = 0, signedOutTicks = 0;
     private boolean warned = false;
 
-    static void ensure(Context c) {
+    static long lastEnsure = 0;
+
+    static void ensure(Context c) { ensure(c, false); }
+
+    /** force=true: seedha shuru karo (login ke baad / boot). Warna sirf tab jab service sach mein band lage. */
+    static void ensure(Context c, boolean force) {
         SharedPreferences sp = null;
         try {
             sp = c.getSharedPreferences("c", Context.MODE_PRIVATE);
             if (sp.getString("cashier_url", "").isEmpty()) return;
+            long now = System.currentTimeMillis();
+            if (!force) {
+                if (now - sp.getLong("svc_ok", 0) < 60000L) return;   // chal rahi hai: dobara start request nahi
+                if (now - lastEnsure < 20000L) return;
+            }
+            lastEnsure = now;
             Intent i = new Intent(c, DashService.class);
             try {
                 if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i); else c.startService(i);
