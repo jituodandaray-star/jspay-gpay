@@ -49,6 +49,10 @@ public class DashService extends Service {
         } catch (Exception ignored) { }
     }
 
+    void stage(String s) {
+        try { getSharedPreferences("c", MODE_PRIVATE).edit().putString("svc_stage", s).putLong("svc_ts", System.currentTimeMillis()).apply(); } catch (Exception ignored) { }
+    }
+
     static void stop(Context c) {
         try { c.stopService(new Intent(c, DashService.class)); } catch (Exception ignored) { }
     }
@@ -90,6 +94,7 @@ public class DashService extends Service {
 
     @Override
     public int onStartCommand(Intent in, int flags, int startId) {
+        stage("command received");
         try {
             if (Build.VERSION.SDK_INT >= 26) {
                 NotificationChannel ch = new NotificationChannel(CH, "Cashier connection", NotificationManager.IMPORTANCE_LOW);
@@ -107,7 +112,8 @@ public class DashService extends Service {
             Notification n = nb.build();
             if (Build.VERSION.SDK_INT >= 29) startForeground(77, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
             else startForeground(77, n);
-        } catch (Exception ignored) { }
+            stage("foreground ok");
+        } catch (Throwable e) { stage("foreground failed: " + e); }
         if (!running) start();
         return START_STICKY;
     }
@@ -117,6 +123,7 @@ public class DashService extends Service {
         String url = sp.getString("cashier_url", "");
         if (url.isEmpty()) { stopSelf(); return; }
         running = true;
+        stage("starting webview");
         h = new Handler(Looper.getMainLooper());
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -164,7 +171,8 @@ public class DashService extends Service {
             ws.setUseWideViewPort(true);
             web.setWebChromeClient(new android.webkit.WebChromeClient());
             web.loadUrl(url);
-        } catch (Throwable t) { stopSelf(); return; }
+            stage("page requested");
+        } catch (Throwable t) { stage("webview failed: " + t); stopSelf(); return; }
         h.postDelayed(loop, 5000);
     }
 
@@ -173,6 +181,7 @@ public class DashService extends Service {
         public void run() {
             if (!running) return;
             tick++;
+            sp.edit().putInt("svc_tick", tick).apply();
             try {
                 web.onResume();
                 web.resumeTimers();

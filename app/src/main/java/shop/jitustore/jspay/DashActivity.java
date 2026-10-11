@@ -67,7 +67,7 @@ public class DashActivity extends Activity {
         try {
             if (sp.getString("cashier_url", "").isEmpty()) return;
             long now = System.currentTimeMillis();
-            if (now - sp.getLong("dash_ok", 0) > 120000L && now - lastKick > 60000L) {
+            if (now - sp.getLong("dash_ok", 0) > 120000L && now - lastKick > 150000L) {
                 lastKick = now;
                 DashService.stop(this);
             }
@@ -262,6 +262,7 @@ public class DashActivity extends Activity {
         long pg = sp.getLong("dash_page", 0), tr = sp.getLong("dash_try", 0);
         TextView dbg = tv("Last page load: " + (pg == 0 ? "never" : new SimpleDateFormat("hh:mm:ss a", Locale.US).format(new Date(pg)))
                 + "\nLast read: " + (tr == 0 ? "never" : new SimpleDateFormat("hh:mm:ss a", Locale.US).format(new Date(tr)) + "  (" + sp.getInt("dash_len", 0) + " chars, " + sp.getInt("dash_tx", 0) + " payments)")
+                + "\nService: " + sp.getString("svc_stage", "not started") + (sp.getLong("svc_ts", 0) == 0 ? "" : " at " + new SimpleDateFormat("hh:mm:ss a", Locale.US).format(new Date(sp.getLong("svc_ts", 0)))) + "  (ticks " + sp.getInt("svc_tick", 0) + ")"
                 + (sp.getString("dash_err", "").isEmpty() ? "" : "\nError: " + sp.getString("dash_err", "")), 11, Color.parseColor("#64748B"), false);
         dbg.setPadding(dp(6), dp(10), dp(6), 0);
         listBox.addView(dbg);
