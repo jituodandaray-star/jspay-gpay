@@ -126,24 +126,37 @@ public class Voice {
         return "en";
     }
 
-    /** Har bhasha ki alag chuni hui awaaz (voice_hi / voice_en / voice_bn / voice_or) laga deta hai. */
+    /** Ek bhasha ki saari awaaz: pehle offline, phir internet wali, naam ke hisaab se. */
+    static java.util.ArrayList<android.speech.tts.Voice> sorted(TextToSpeech tts, String lg) {
+        java.util.ArrayList<android.speech.tts.Voice> list = new java.util.ArrayList<>();
+        try {
+            java.util.Set<android.speech.tts.Voice> vs = tts.getVoices();
+            if (vs != null) {
+                for (android.speech.tts.Voice v : vs) {
+                    if (v.getLocale().getLanguage().equals(lg)) list.add(v);
+                }
+            }
+        } catch (Exception ignored) { }
+        java.util.Collections.sort(list, (x, y) -> {
+            int nx = x.isNetworkConnectionRequired() ? 1 : 0;
+            int ny = y.isNetworkConnectionRequired() ? 1 : 0;
+            if (nx != ny) return nx - ny;
+            return x.getName().compareTo(y.getName());
+        });
+        return list;
+    }
+
+    /** Fix awaaz: Hindi = Awaaz 7, English = Awaaz 3. Bangla/Odia = phone ki apni. */
     static String pick(TextToSpeech tts, SharedPreferences sp) {
         String l = pick(tts, sp.getString("voice_lang", "auto"));
-        String key = l.equals("od") ? "voice_hi" : "voice_" + l;
-        String name = sp.getString(key, "");
-        if (!name.isEmpty()) {
-            try {
-                java.util.Set<android.speech.tts.Voice> vs = tts.getVoices();
-                if (vs != null) {
-                    for (android.speech.tts.Voice v : vs) {
-                        if (name.equals(v.getName())) {
-                            tts.setVoice(v);
-                            break;
-                        }
-                    }
-                }
-            } catch (Exception ignored) { }
-        }
+        try {
+            String lg = l.equals("od") || l.equals("hi") ? "hi" : l.equals("en") ? "en" : "";
+            if (!lg.isEmpty()) {
+                java.util.ArrayList<android.speech.tts.Voice> list = sorted(tts, lg);
+                int n = lg.equals("hi") ? 7 : 3;
+                if (!list.isEmpty()) tts.setVoice(list.get(Math.min(n, list.size()) - 1));
+            }
+        } catch (Exception ignored) { }
         return l;
     }
 }

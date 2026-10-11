@@ -458,10 +458,15 @@ public class MainActivity extends Activity {
             refresh();
         });
         TextView bTest = button("Check connection", true, v -> verify(sp.getString("secret", ""), false));
-        LinearLayout.LayoutParams l1 = new LinearLayout.LayoutParams(0, -2, 1f);
-        l1.rightMargin = dp(8);
-        LinearLayout.LayoutParams l2 = new LinearLayout.LayoutParams(0, -2, 1f);
-        l2.leftMargin = dp(8);
+        LinearLayout.LayoutParams l1 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+        l1.rightMargin = dp(6);
+        LinearLayout.LayoutParams l2 = new LinearLayout.LayoutParams(0, dp(52), 1f);
+        l2.leftMargin = dp(6);
+        for (TextView tb : new TextView[]{bLogout, bTest}) {
+            tb.setTextSize(14);
+            tb.setSingleLine(true);
+            tb.setPadding(dp(8), 0, dp(8), 0);
+        }
         bLogout.setLayoutParams(l1);
         bTest.setLayoutParams(l2);
         ac.addView(bLogout);
@@ -477,7 +482,7 @@ public class MainActivity extends Activity {
                 Uri.parse(Sx.PANEL))));
         press(panel);
         root.addView(panel);
-        TextView foot = text("Secured by JS PAY  •  v1.15", 12, Color.parseColor("#64748B"), false);
+        TextView foot = text("Secured by JS PAY  •  v1.16", 12, Color.parseColor("#64748B"), false);
         foot.setGravity(Gravity.CENTER);
         root.addView(foot);
 
@@ -701,7 +706,7 @@ public class MainActivity extends Activity {
 
         LinearLayout c3 = card();
         c3.addView(text("AWAAZ CHUNO", 11, MUTED, true));
-        TextView vh = text("Jo awaaz dabaoge wahi save hogi aur turant sunayi degi. Ye list tumhare phone ki apni awaazon ki hai.", 12, MUTED, false);
+        TextView vh = text("Hindi mein Hindi Awaaz 7 aur English mein English Awaaz 3 bolegi. Dabao to sunayi degi.", 12, MUTED, false);
         vh.setPadding(0, dp(6), 0, dp(4));
         c3.addView(vh);
         vListBox = new LinearLayout(this);
@@ -718,12 +723,20 @@ public class MainActivity extends Activity {
 
     LinearLayout vListBox;
     int voiceTries = 0;
-    boolean voiceShowAll = false;
+    String vOpen = "";
 
     static final String[] VL = {"hi", "en", "bn", "or"};
 
     String vlName(String lg) {
         return lg.equals("hi") ? "Hindi" : lg.equals("en") ? "English" : lg.equals("bn") ? "Bangla" : "Odia";
+    }
+
+    java.util.ArrayList<android.speech.tts.Voice> voicesOf(String lg) {
+        return Voice.sorted(ttsT, lg);
+    }
+
+    String voiceInfo(android.speech.tts.Voice v) {
+        return (v.isNetworkConnectionRequired() ? "Internet chahiye" : "Offline") + " \u00B7 " + v.getLocale().getDisplayCountry();
     }
 
     void renderVoiceList() {
@@ -737,84 +750,28 @@ public class MainActivity extends Activity {
             return;
         }
         voiceTries = 0;
+        // sirf 2 awaaz: Hindi = Awaaz 7, English = Awaaz 3 (hamesha yahi)
         try {
-            String old = sp.getString("voice_name", "");
-            if (!old.isEmpty()) {
-                java.util.Set<android.speech.tts.Voice> vs0 = ttsT.getVoices();
-                if (vs0 != null) {
-                    for (android.speech.tts.Voice v0 : vs0) {
-                        if (old.equals(v0.getName())) {
-                            sp.edit().putString("voice_" + v0.getLocale().getLanguage(), old).apply();
-                        }
-                    }
-                }
-                sp.edit().remove("voice_name").apply();
+            java.util.ArrayList<android.speech.tts.Voice> hl = voicesOf("hi");
+            java.util.ArrayList<android.speech.tts.Voice> el = voicesOf("en");
+            SharedPreferences.Editor ed = sp.edit();
+            ed.remove("voice_bn").remove("voice_or");
+            if (!hl.isEmpty()) ed.putString("voice_hi", hl.get(Math.min(7, hl.size()) - 1).getName());
+            if (!el.isEmpty()) ed.putString("voice_en", el.get(Math.min(3, el.size()) - 1).getName());
+            ed.apply();
+            String[] lgs = {"hi", "en"};
+            java.util.ArrayList<java.util.ArrayList<android.speech.tts.Voice>> ls = new java.util.ArrayList<>();
+            ls.add(hl); ls.add(el);
+            for (int k = 0; k < 2; k++) {
+                java.util.ArrayList<android.speech.tts.Voice> list = ls.get(k);
+                String cur = sp.getString("voice_" + lgs[k], "");
+                android.speech.tts.Voice sel = null;
+                int idx = 0;
+                for (int i = 0; i < list.size(); i++) if (list.get(i).getName().equals(cur)) { sel = list.get(i); idx = i + 1; }
+                if (sel == null) continue;
+                vListBox.addView(voiceRow(vlName(lgs[k]) + " \u00B7 Awaaz " + idx, voiceInfo(sel) + " \u00B7 sunne ke liye dabao", true, sel, lgs[k]));
             }
         } catch (Exception ignored) { }
-        boolean anyChosen = false;
-        for (String lg : VL) { if (!sp.getString("voice_" + lg, "").isEmpty()) anyChosen = true; }
-        java.util.ArrayList<android.speech.tts.Voice> list = new java.util.ArrayList<>();
-        try {
-            java.util.Set<android.speech.tts.Voice> vs = ttsT.getVoices();
-            if (vs != null) {
-                for (android.speech.tts.Voice v : vs) {
-                    String lg = v.getLocale().getLanguage();
-                    for (String k : VL) { if (lg.equals(k)) list.add(v); }
-                }
-            }
-        } catch (Exception ignored) { }
-        java.util.Collections.sort(list, (a, b) -> {
-            int la = java.util.Arrays.asList(VL).indexOf(a.getLocale().getLanguage());
-            int lb = java.util.Arrays.asList(VL).indexOf(b.getLocale().getLanguage());
-            if (la != lb) return la - lb;
-            int na = a.isNetworkConnectionRequired() ? 1 : 0;
-            int nb = b.isNetworkConnectionRequired() ? 1 : 0;
-            if (na != nb) return na - nb;
-            return a.getName().compareTo(b.getName());
-        });
-        boolean showAll = voiceShowAll || !anyChosen;
-        if (showAll) {
-            vListBox.addView(voiceRow("Phone ki default awaaz", "Auto \u00B7 sab bhasha ke liye", !anyChosen, null));
-        }
-        java.util.HashMap<String, Integer> cnt = new java.util.HashMap<>();
-        java.util.HashSet<String> have = new java.util.HashSet<>();
-        for (android.speech.tts.Voice v : list) {
-            String lg = v.getLocale().getLanguage();
-            have.add(lg);
-            int num = (cnt.containsKey(lg) ? cnt.get(lg) : 0) + 1;
-            cnt.put(lg, num);
-            boolean sel = v.getName().equals(sp.getString("voice_" + lg, ""));
-            if (!showAll && !sel) continue;
-            String title = vlName(lg) + " \u00B7 Awaaz " + num;
-            String sub = (v.isNetworkConnectionRequired() ? "Internet chahiye" : "Offline (net ke bina bhi chalegi)") + " \u00B7 " + v.getLocale().getDisplayCountry()
-                    + "  \u2022  " + vlName(lg) + " bolne par yehi";
-            vListBox.addView(voiceRow(title, sub, sel, v));
-        }
-        if (list.isEmpty()) {
-            TextView w = text("Is phone mein koi awaaz nahi mili. Neeche wala button dabakar awaaz download karo.", 13, Color.parseColor("#FECACA"), false);
-            w.setPadding(0, dp(10), 0, dp(6));
-            vListBox.addView(w);
-        }
-        if (showAll) {
-            if (!have.contains("or")) {
-                TextView w = text("Odia: is phone mein Odia awaaz nahi hai, isliye Hindi awaaz se Odia bolegi.", 12, MUTED, false);
-                w.setPadding(0, dp(10), 0, 0);
-                vListBox.addView(w);
-            }
-            if (!have.contains("bn")) {
-                TextView w = text("Bangla: is phone mein Bangla awaaz nahi hai. Neeche wale button se download karo, warna English bolegi.", 12, MUTED, false);
-                w.setPadding(0, dp(6), 0, 0);
-                vListBox.addView(w);
-            }
-        }
-        if (anyChosen) {
-            TextView tg = text(voiceShowAll ? "Sirf meri chuni hui awaaz dikhao" : "Doosri awaaz badalni hai? Sab awaaz dikhao", 13, PRIMARY, true);
-            tg.setGravity(Gravity.CENTER);
-            tg.setPadding(0, dp(14), 0, dp(6));
-            tg.setOnClickListener(x -> { voiceShowAll = !voiceShowAll; renderVoiceList(); });
-            press(tg);
-            vListBox.addView(tg);
-        }
     }
 
     void previewVoice(android.speech.tts.Voice v) {
@@ -830,23 +787,19 @@ public class MainActivity extends Activity {
         } catch (Exception ignored) { }
     }
 
-    View voiceRow(String title, String sub, boolean on, final android.speech.tts.Voice v) {
+    View voiceRow(String title, String sub, boolean on, final android.speech.tts.Voice v, final String lg) {
         LinearLayout r = new LinearLayout(this);
         r.setOrientation(LinearLayout.HORIZONTAL);
         r.setGravity(Gravity.CENTER_VERTICAL);
-        r.setPadding(dp(12), dp(10), dp(12), dp(10));
+        r.setPadding(dp(12), dp(9), dp(12), dp(9));
         r.setBackground(on ? box(Color.parseColor("#226366F1"), 12, PRIMARY) : box(Color.TRANSPARENT, 12, LINE));
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(-1, -2);
-        rp.topMargin = dp(8);
+        rp.topMargin = dp(6);
+        rp.leftMargin = dp(14);
         r.setLayoutParams(rp);
-        android.widget.ImageView iv = new android.widget.ImageView(this);
-        iv.setImageDrawable(new Ic("vol", on ? Color.WHITE : Color.parseColor("#A5B4FC"), dp(20)));
-        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(dp(20), dp(20));
-        ip.rightMargin = dp(12);
-        r.addView(iv, ip);
         LinearLayout t = new LinearLayout(this);
         t.setOrientation(LinearLayout.VERTICAL);
-        t.addView(text(title, 15, TXT, true));
+        t.addView(text(title, 14, TXT, true));
         t.addView(text(sub, 11, MUTED, false));
         r.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         if (on) {
@@ -855,12 +808,9 @@ public class MainActivity extends Activity {
             r.addView(ck, new LinearLayout.LayoutParams(dp(22), dp(22)));
         }
         r.setOnClickListener(x -> {
-            if (v == null) {
-                sp.edit().remove("voice_hi").remove("voice_en").remove("voice_bn").remove("voice_or").remove("voice_name").apply();
-                voiceShowAll = false;
-            } else {
-                sp.edit().putString("voice_" + v.getLocale().getLanguage(), v.getName()).apply();
-            }
+            if (v == null) sp.edit().remove("voice_" + lg).apply();
+            else sp.edit().putString("voice_" + lg, v.getName()).apply();
+            vOpen = "";
             sTap();
             refreshVoiceUi();
             if (v != null) previewVoice(v);
@@ -1464,7 +1414,7 @@ public class MainActivity extends Activity {
         String k = sp.getString("secret", "");
         String masked = k.length() > 8 ? k.substring(0, 3) + "••••" + k.substring(k.length() - 4) : "••••";
         LinearLayout c = card();
-        c.addView(kv("Version", "v1.15"));
+        c.addView(kv("Version", "v1.16"));
         c.addView(kv("Login Key", masked));
         c.addView(kv("Server", "jitustore.shop"));
         aboutBox.addView(c);
