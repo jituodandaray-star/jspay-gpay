@@ -124,6 +124,20 @@ public class NotifService extends NotificationListenerService {
             final String text = x == null ? "" : x.toString();
             if (title.isEmpty() && text.isEmpty()) return;
             final long pt = sbn.getPostTime();
+            // GPay purana notification baad mein dobara post karta hai: wahi payment (amount+naam+time) dobara ho to chhod do
+            Matcher km = Pattern.compile("(?is)(?:\u20B9|Rs\\.?|INR)\\s*([0-9,]+(?:\\.[0-9]{1,2})?)\\s+received\\s+from\\s+(.+?)\\s+at\\s+([0-9]{1,2}:[0-9]{2}\\s*[ap]\\.?m)").matcher(title + "\n" + text);
+            if (km.find()) {
+                String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date());
+                String pk = today + "#" + km.group(1).replace(",", "") + "#" + km.group(2).trim() + "#" + km.group(3).replace(" ", "").toLowerCase();
+                synchronized (NotifService.class) {
+                    String old = sp.getString("seenpay", "");
+                    if (("\n" + old + "\n").contains("\n" + pk + "\n")) return;
+                    String[] ps = old.isEmpty() ? new String[0] : old.split("\n");
+                    StringBuilder nb = new StringBuilder(pk);
+                    for (int i = 0; i < ps.length && i < 59; i++) nb.append("\n").append(ps[i]);
+                    sp.edit().putString("seenpay", nb.toString()).apply();
+                }
+            }
             new Thread(() -> send(secret, title, text, pt)).start();
         } catch (Exception ignored) { }
     }

@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 /** Dashboard Mode (Beta): Google Pay for Business ka web dashboard app ke andar kholta hai,
  *  aaj ki payments padhta hai, naya paisa aate hi server ko bhejta hai. Notification ki zarurat nahi. */
 public class DashActivity extends Activity {
-    static final String START = "https://pay.google.com/intl/en_in/about/business/";
+    static final String START = "https://pay.google.com/g4b/";
     static final Pattern ROW = Pattern.compile("₹\\s?([0-9,]+(?:\\.[0-9]{1,2})?)\\s+(Today|Yesterday|[0-9]{1,2}\\s+[A-Za-z]{3,9})\\s+([0-9]{1,2}:[0-9]{2})");
     static final Pattern CARD = Pattern.compile("Received\\s+₹\\s?([0-9,]+(?:\\.[0-9]{1,2})?)[\\s\\S]{0,80}?From\\s+([^\\n\\r]+)");
 
@@ -75,6 +75,18 @@ public class DashActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        try { build(); }
+        catch (Throwable e) {
+            TextView t = new TextView(this);
+            t.setBackgroundColor(Color.parseColor("#0B1020"));
+            t.setTextColor(Color.WHITE);
+            t.setPadding(dp(16), dp(40), dp(16), dp(16));
+            t.setText("Dashboard khul nahi paya. Is screen ka screenshot bhej do:\n\n" + e);
+            setContentView(t);
+        }
+    }
+
+    void build() {
         sp = getSharedPreferences("c", MODE_PRIVATE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().setStatusBarColor(Color.parseColor("#0B1020"));

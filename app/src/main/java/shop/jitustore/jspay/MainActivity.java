@@ -1036,7 +1036,10 @@ public class MainActivity extends Activity {
         t.addView(text(sub, 12, MUTED, false));
         it.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
         it.addView(text("›", 24, PRIMARY, true));
-        it.setOnClickListener(v -> { if (target.equals("dash")) startActivity(new Intent(this, DashActivity.class)); else go(target); });
+        it.setOnClickListener(v -> { if (target.equals("dash")) {
+                try { startActivity(new Intent(this, DashActivity.class)); }
+                catch (Exception e) { Toast.makeText(this, "Dashboard file adhoori hai: AndroidManifest.xml bhi upload karo (app/src/main mein)", Toast.LENGTH_LONG).show(); }
+            } else go(target); });
         press(it);
         return it;
     }
