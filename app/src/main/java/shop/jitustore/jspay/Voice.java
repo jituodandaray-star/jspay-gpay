@@ -27,6 +27,7 @@ public class Voice {
         String a = money(amount, lang);
         String e = money(exp, lang);
         if (kind.equals("other")) return otherSay(lang, a, exp);
+        if (kind.equals("deposit")) return depositSay(lang, a);
         switch (lang) {
             case "hi":
                 switch (kind) {
@@ -85,6 +86,17 @@ public class Voice {
             case "or": return n + "ରେ " + a + " ମିଳିଲା।";
             case "od": return n + " रे " + a + " मिळिला।";
             default: return "Received " + a + " in " + n + ".";
+        }
+    }
+
+    /** Telegram bot ka "Quick Deposit" message. */
+    static String depositSay(String lang, String a) {
+        switch (lang) {
+            case "hi": return "डिपॉज़िट आया। " + a + "।";
+            case "bn": return "ডিপোজিট এসেছে। " + a + "।";
+            case "or": return "ଡିପୋଜିଟ ଆସିଛି। " + a + "।";
+            case "od": return "डिपोजिट आसिछि। " + a + "।";
+            default: return "Deposit received. " + a + ".";
         }
     }
 

@@ -144,7 +144,7 @@ public class NotifService extends NotificationListenerService {
 
     static String lastOtherKey = "";
     static long lastOtherAt = 0;
-    static final String[] OTHER_APPS = {"phonepe", "paytm", "one97", "npci", "bhim", "mobikwik", "freecharge", "fampay", "amazon.mshop"};
+    static final String[] OTHER_APPS = {"phonepe", "paytm", "one97", "npci", "bhim", "mobikwik", "freecharge", "fampay", "amazon.mshop", "telegram"};
 
     /** PhonePe, Paytm jaise dusre UPI apps: sirf awaaz, server ko kuch nahi bhejna. */
     private void otherApp(StatusBarNotification sbn, String pkg) {
@@ -163,12 +163,21 @@ public class NotifService extends NotificationListenerService {
             String all = (t == null ? "" : t.toString()) + " " + (x == null ? "" : x.toString());
             if (all.trim().isEmpty()) return;
             String low = all.toLowerCase();
+            boolean tg = p.contains("telegram");
+            if (tg && !low.contains("deposit")) return;   // Telegram: sirf bot ka "Deposit" message
             boolean credit = low.contains("received") || low.contains("credited") || low.contains("paid you") || low.contains("sent you") || low.contains("deposited") || low.contains("added to your");
             boolean debit = low.contains("debited") || low.contains("paid to") || low.contains("sent to") || low.contains("you paid") || low.contains("you sent") || low.contains("request") || low.contains("failed") || low.contains("declined") || low.contains("refund") || low.contains("reminder");
-            if (!credit || debit) return;
-            Matcher m = Pattern.compile("(?:\u20B9|Rs\\.?|INR)\\s?([0-9,]+(?:\\.[0-9]{1,2})?)").matcher(all);
-            if (!m.find()) return;
-            String amount = m.group(1).replace(",", "");
+            if (!tg && (!credit || debit)) return;
+            String amount = "";
+            if (tg) {
+                Matcher am = Pattern.compile("(?i)Amount\\s*:?\\s*(?:\u20B9|Rs\\.?|INR)?\\s?([0-9,]+(?:\\.[0-9]{1,2})?)").matcher(all);
+                if (am.find()) amount = am.group(1).replace(",", "");
+            }
+            if (amount.isEmpty()) {
+                Matcher m = Pattern.compile("(?:\u20B9|Rs\\.?|INR)\\s?([0-9,]+(?:\\.[0-9]{1,2})?)").matcher(all);
+                if (!m.find()) return;
+                amount = m.group(1).replace(",", "");
+            }
             String key = p + "#" + amount + "#" + all;
             long now = System.currentTimeMillis();
             synchronized (NotifService.class) {
@@ -178,7 +187,7 @@ public class NotifService extends NotificationListenerService {
             }
             String app = "";
             try { app = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0))); } catch (Exception ignored) { }
-            speak("other", amount, app, "gp");
+            speak(tg ? "deposit" : "other", amount, app, "gp");
         } catch (Exception ignored) { }
     }
 
